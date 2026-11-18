@@ -1,0 +1,536 @@
+<UserControl x:Class="KageDock.Views.MusicIslandView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:svgc="http://sharpvectors.codeplex.com/svgc/"
+             MinWidth="360"
+             MinHeight="150"
+             Background="Transparent"
+             SnapsToDevicePixels="True"
+             UseLayoutRounding="True">
+
+    <UserControl.Resources>
+
+        <SolidColorBrush x:Key="GlassText" Color="#FFF8FAFC"/>
+        <SolidColorBrush x:Key="GlassMuted" Color="#AEB8C5"/>
+
+        <!-- Standard secondary controls -->
+    <Style x:Key="IslandButton" TargetType="{x:Type Button}">
+        <Setter Property="Width" Value="30"/>
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Foreground" Value="#FFF8FAFC"/>
+        <Setter Property="Background" Value="#14FFFFFF"/>
+        <Setter Property="BorderBrush" Value="#25FFFFFF"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type Button}">
+
+                    <Border x:Name="Surface"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="15"
+                            RenderTransformOrigin="0.5,0.5">
+
+                        <Border.RenderTransform>
+                            <TransformGroup>
+                                <ScaleTransform x:Name="ButtonScale"
+                                                ScaleX="1"
+                                                ScaleY="1"/>
+                                <TranslateTransform x:Name="ButtonOffset"
+                                                    Y="0"/>
+                            </TransformGroup>
+                        </Border.RenderTransform>
+
+                        <ContentPresenter
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"/>
+
+                    </Border>
+
+                    <ControlTemplate.Triggers>
+
+                        <!-- Hover -->
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Surface"
+                                    Property="Background"
+                                    Value="#28FFFFFF"/>
+
+                            <Setter TargetName="Surface"
+                                    Property="BorderBrush"
+                                    Value="#65FFFFFF"/>
+
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation
+                                            Storyboard.TargetName="ButtonOffset"
+                                            Storyboard.TargetProperty="Y"
+                                            To="-1"
+                                            Duration="0:0:0.14"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation
+                                            Storyboard.TargetName="ButtonOffset"
+                                            Storyboard.TargetProperty="Y"
+                                            To="0"
+                                            Duration="0:0:0.14"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
+                        </Trigger>
+
+                        <!-- Press -->
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Surface"
+                                    Property="Background"
+                                    Value="#40FFFFFF"/>
+
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation
+                                            Storyboard.TargetName="ButtonScale"
+                                            Storyboard.TargetProperty="ScaleX"
+                                            To="0.94"
+                                            Duration="0:0:0.07"/>
+
+                                        <DoubleAnimation
+                                            Storyboard.TargetName="ButtonScale"
+                                            Storyboard.TargetProperty="ScaleY"
+                                            To="0.94"
+                                            Duration="0:0:0.07"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation
+                                            Storyboard.TargetName="ButtonScale"
+                                            Storyboard.TargetProperty="ScaleX"
+                                            To="1"
+                                            Duration="0:0:0.12"/>
+
+                                        <DoubleAnimation
+                                            Storyboard.TargetName="ButtonScale"
+                                            Storyboard.TargetProperty="ScaleY"
+                                            To="1"
+                                            Duration="0:0:0.12"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
+                        </Trigger>
+
+                        <!-- Disabled -->
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Surface"
+                                    Property="Opacity"
+                                    Value="0.35"/>
+                        </Trigger>
+
+                    </ControlTemplate.Triggers>
+
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    </UserControl.Resources>
+
+
+    <Grid Margin="6">
+
+        <Border Background="Transparent"
+                BorderBrush="Transparent"
+                BorderThickness="0"
+                CornerRadius="18"
+                Padding="14">
+
+            <Grid>
+
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+
+                <!-- MAIN CONTENT -->
+                <Grid Grid.Row="0">
+
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="100"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+
+                    <!-- ALBUM ARTWORK -->
+                    <Border Grid.Column="0"
+                            Width="100"
+                            Height="100"
+                            CornerRadius="11"
+                            Background="#18FFFFFF"
+                            BorderBrush="#30FFFFFF"
+                            BorderThickness="1"
+                            ClipToBounds="True"
+                            VerticalAlignment="Center">
+
+                            <Border.RenderTransform>
+                                <TranslateTransform X="8"/>
+                            </Border.RenderTransform>
+
+                        <Grid>
+
+                            <Image x:Name="AlbumArt"
+                                   Stretch="UniformToFill"
+                                   RenderOptions.BitmapScalingMode="HighQuality"/>
+
+                            <TextBlock x:Name="AlbumPlaceholder"
+                                       Text="♫"
+                                       FontSize="32"
+                                       Foreground="#BFFFFFFF"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+
+                        </Grid>
+
+                    </Border>
+
+
+                    <!-- TRACK INFORMATION -->
+                    <Grid Grid.Column="1"
+                          Margin="14,0,12,0"
+                          VerticalAlignment="Center">
+
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+
+                        <Border x:Name="TrackTitleViewport"
+                                Grid.Row="0"
+                                ClipToBounds="True"
+                                HorizontalAlignment="Stretch"
+                                SizeChanged="TrackTitleViewport_SizeChanged">
+
+                            <Canvas x:Name="TrackTitleCanvas"
+                                    ClipToBounds="True"
+                                    HorizontalAlignment="Stretch"
+                                    Height="28">
+
+                                <TextBlock x:Name="TrackTitle"
+                                        Text="Waiting for music"
+                                        Foreground="{StaticResource GlassText}"
+                                        FontSize="19"
+                                        Margin="8,2,0,0"
+                                        FontWeight="SemiBold"
+                                        TextAlignment="Left"
+                                        TextWrapping="NoWrap"
+                                        Canvas.Left="0">
+
+                                        <TextBlock.Effect>
+                                            <DropShadowEffect
+                                                Color="White"
+                                                BlurRadius="9"
+                                                ShadowDepth="0"
+                                                Opacity="0.28"/>
+                                        </TextBlock.Effect>
+
+                                    <TextBlock.RenderTransform>
+                                        <TranslateTransform x:Name="TrackTitleTransform"/>
+                                    </TextBlock.RenderTransform>
+
+                       </TextBlock>
+                    </Canvas>
+                 </Border>
+
+
+                        <TextBlock x:Name="ArtistName"
+                                   Grid.Row="1"
+                                   Text="Start playing something on Spotify"
+                                   Foreground="{StaticResource GlassMuted}"
+                                   FontSize="13"
+                                   Margin="8,2,0,0"
+                                   TextTrimming="CharacterEllipsis"
+                                   TextWrapping="NoWrap"
+                                   Opacity="0.85"/>
+
+
+                        <TextBlock x:Name="AlbumName"
+                                   Grid.Row="2"
+                                   Text="Your music will appear here"
+                                   Foreground="#8793A2"
+                                   FontSize="11"
+                                   Margin="8,2,0,0"
+                                   TextTrimming="CharacterEllipsis"
+                                   TextWrapping="NoWrap"
+                                   Opacity="0.65"/>
+
+                    </Grid>
+
+
+                    <!-- CONNECTION STATUS -->
+                    <TextBlock x:Name="ConnectionText"
+                               Visibility="Collapsed"
+                               Text="CONNECTING"/>
+
+
+                    <!-- PLAYBACK CONTROLS -->
+                    <StackPanel Grid.Column="2"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center"
+                                Margin="0,0,30,0">
+
+                        <!-- SHUFFLE -->
+                        <Button x:Name="ShuffleButton"
+                                Style="{StaticResource IslandButton}"
+                                ToolTip="Shuffle"
+                                Margin="0,0,5,0"
+                                IsEnabled="False">
+
+                            <svgc:SvgViewbox x:Name="ShuffleIcon"
+                                            Source="Assets/Icons/Music/shuffle.svg"
+                                            Width="18"
+                                            Height="18"
+                                            Stretch="Uniform"/>
+
+                        </Button>
+
+
+                        <!-- PREVIOUS -->
+                        <Button x:Name="PreviousButton"
+                                Width="34"
+                                Height="34"
+                                Style="{StaticResource IslandButton}"
+                                ToolTip="Previous track"
+                                Margin="0,0,5,0"
+                                IsEnabled="False">
+
+                            <svgc:SvgViewbox
+                                Source="Assets/Icons/Music/skip-back.svg"
+                                Width="21"
+                                Height="21"
+                                Stretch="Uniform"/>
+
+                        </Button>
+
+
+                        <!-- PLAY / PAUSE -->
+                        <Button x:Name="PlayPauseButton"
+                                Width="42"
+                                Height="42"
+                                Style="{StaticResource IslandButton}"
+                                Background="#30FFFFFF"
+                                Foreground="#FFFFFFFF"
+                                BorderBrush="#55FFFFFF"
+                                ToolTip="Play or pause"
+                                IsEnabled="False"
+                                Margin="0,0,5,0">
+
+                            <Grid Width="21" Height="21">
+
+                                <svgc:SvgViewbox x:Name="PlayIcon"
+                                                Source="Assets/Icons/Music/play.svg"
+                                                Stretch="Uniform"/>
+
+                                <svgc:SvgViewbox x:Name="PauseIcon"
+                                                Source="Assets/Icons/Music/pause.svg"
+                                                Stretch="Uniform"
+                                                Visibility="Collapsed"/>
+
+                            </Grid>
+
+                        </Button>
+
+
+                        <!-- NEXT -->
+                        <Button x:Name="NextButton"
+                                Width="34"
+                                Height="34"
+                                Style="{StaticResource IslandButton}"
+                                ToolTip="Next track"
+                                Margin="0,0,5,0"
+                                IsEnabled="False">
+
+                            <svgc:SvgViewbox
+                                Source="Assets/Icons/Music/skip-forward.svg"
+                                Width="21"
+                                Height="21"
+                                Stretch="Uniform"/>
+
+                        </Button>
+
+
+                        <!-- REPEAT -->
+                        <Button x:Name="RepeatButton"
+                                Style="{StaticResource IslandButton}"
+                                ToolTip="Repeat"
+                                IsEnabled="False">
+
+                            <Grid Width="18" Height="18">
+
+                                <svgc:SvgViewbox x:Name="RepeatIcon"
+                                                Source="Assets/Icons/Music/repeat.svg"
+                                                Stretch="Uniform"/>
+
+                                <svgc:SvgViewbox x:Name="RepeatOnceIcon"
+                                                Source="Assets/Icons/Music/repeat-once.svg"
+                                                Stretch="Uniform"
+                                                Visibility="Collapsed"/>
+
+                            </Grid>
+
+                        </Button>
+
+                    </StackPanel>
+
+                </Grid>
+
+
+                                    <!-- BOTTOM PROGRESS AREA -->
+                    <StackPanel Grid.Row="1"
+                                Margin="0,13,0,0"
+                                HorizontalAlignment="Center"
+                                Width="570">
+
+                        <!-- SLIDER + PARTICLE OVERLAY -->
+                        <Grid Width="570"
+                            Height="14"
+                            ClipToBounds="True">
+
+                            <Slider x:Name="ProgressSlider"
+                                    Minimum="0"
+                                    Maximum="100"
+                                    Value="0"
+                                    Height="14"
+                                    IsEnabled="False"
+                                    Focusable="False"
+                                    IsMoveToPointEnabled="False"
+                                    Background="#25FFFFFF"
+                                    Foreground="#FFFFFFFF"
+                                    VerticalAlignment="Center">
+
+                                <Slider.Template>
+                                    <ControlTemplate TargetType="{x:Type Slider}">
+
+                                        <Grid Height="14"
+                                            Background="Transparent">
+
+                                            <!-- TRACK BACKGROUND -->
+                                            <Border Height="5"
+                                                    CornerRadius="3"
+                                                    Background="#35FFFFFF"
+                                                    VerticalAlignment="Center"/>
+
+                                            <!-- PROGRESS FILL -->
+                                            <Border x:Name="ProgressFill"
+                                                    Height="5"
+                                                    Width="0"
+                                                    CornerRadius="3"
+                                                    Background="#FFFFFFFF"
+                                                    HorizontalAlignment="Left"
+                                                    VerticalAlignment="Center"/>
+
+                                            <!-- SLIDER TRACK -->
+                                            <Track x:Name="PART_Track"
+                                                VerticalAlignment="Center">
+
+                                                <Track.DecreaseRepeatButton>
+                                                    <RepeatButton Command="Slider.DecreaseLarge"
+                                                                Opacity="0"
+                                                                Focusable="False"
+                                                                IsEnabled="False"/>
+                                                </Track.DecreaseRepeatButton>
+
+                                                <!-- PROGRESS THUMB -->
+                                                <Track.Thumb>
+                                                    <Thumb Width="10"
+                                                        Height="10"
+                                                        UseLayoutRounding="False"
+                                                        SnapsToDevicePixels="False"
+                                                        DragStarted="ProgressThumb_DragStarted"
+                                                        DragCompleted="ProgressThumb_DragCompleted">
+
+                                                        <Thumb.Template>
+                                                            <ControlTemplate TargetType="{x:Type Thumb}">
+
+                                                                <Ellipse Fill="#FFFFFFFF">
+                                                                    <Ellipse.Effect>
+                                                                        <DropShadowEffect
+                                                                            Color="#FFFFFFFF"
+                                                                            BlurRadius="6"
+                                                                            ShadowDepth="0"
+                                                                            Opacity="0.45"/>
+                                                                    </Ellipse.Effect>
+                                                                </Ellipse>
+
+                                                            </ControlTemplate>
+                                                        </Thumb.Template>
+
+                                                    </Thumb>
+                                                </Track.Thumb>
+
+                                                <Track.IncreaseRepeatButton>
+                                                    <RepeatButton Command="Slider.IncreaseLarge"
+                                                                Opacity="0"
+                                                                Focusable="False"
+                                                                IsEnabled="False"/>
+                                                </Track.IncreaseRepeatButton>
+
+                                            </Track>
+
+                                        </Grid>
+
+                                    </ControlTemplate>
+                                </Slider.Template>
+
+                            </Slider>
+
+                            <!-- PARTICLE OVERLAY: OUTSIDE SLIDER TEMPLATE -->
+                            <Canvas x:Name="ProgressParticleCanvas"
+                                    Width="570"
+                                    Height="14"
+                                    IsHitTestVisible="False"
+                                    ClipToBounds="True"/>
+
+                        </Grid>
+
+                        <!-- TIMESTAMPS -->
+                        <Grid Margin="0,4,0,0">
+
+                            <TextBlock x:Name="ElapsedText"
+                                    Text="0:00"
+                                    Foreground="#AEB8C5"
+                                    FontSize="10"/>
+
+                            <TextBlock x:Name="RemainingText"
+                                    Text="-0:00"
+                                    Foreground="#AEB8C5"
+                                    FontSize="10"
+                                    HorizontalAlignment="Right"/>
+
+                        </Grid>
+
+                    </StackPanel>
+
+            </Grid>
+
+        </Border>
+
+    </Grid>
+
+</UserControl>

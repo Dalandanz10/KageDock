@@ -1,0 +1,66 @@
+<UserControl x:Class="KageDock.Views.KageEmberEffect"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Visibility="Collapsed"
+             IsHitTestVisible="False"
+             Focusable="False"
+             ClipToBounds="True">
+
+    <!-- Sits inside the clock strip's inner Grid, above KageEyesCanvas.
+         Coordinates match the strip: 100 x 30, eyes centred at (34,15) and (66,15). -->
+    <Canvas x:Name="Layer"
+            Width="100"
+            Height="30"
+            ClipToBounds="True"
+            IsHitTestVisible="False">
+
+        <!-- Soft aura across the strip -->
+        <Ellipse x:Name="Aura"
+                 Canvas.Left="-10"
+                 Canvas.Top="-12"
+                 Width="120"
+                 Height="54"
+                 Opacity="0">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Color="#44FFFFFF" Offset="0"/>
+                    <GradientStop Color="#22FFFFFF" Offset="0.55"/>
+                    <GradientStop Color="#00FFFFFF" Offset="1"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+        </Ellipse>
+
+        <!-- Eye glow: tints the white eye and adds a halo -->
+        <Ellipse x:Name="GlowLeft"
+                 Canvas.Left="14"
+                 Canvas.Top="2"
+                 Width="40"
+                 Height="26"
+                 Opacity="0">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Color="#E6FFFFFF" Offset="0"/>
+                    <GradientStop Color="#66FFFFFF" Offset="0.45"/>
+                    <GradientStop Color="#00FFFFFF" Offset="1"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+        </Ellipse>
+
+        <Ellipse x:Name="GlowRight"
+                 Canvas.Left="46"
+                 Canvas.Top="2"
+                 Width="40"
+                 Height="26"
+                 Opacity="0">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Color="#E6FFFFFF" Offset="0"/>
+                    <GradientStop Color="#66FFFFFF" Offset="0.45"/>
+                    <GradientStop Color="#00FFFFFF" Offset="1"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+        </Ellipse>
+
+        <!-- Embers are created once in code-behind and added here. -->
+    </Canvas>
+</UserControl>

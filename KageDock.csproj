@@ -1,0 +1,40 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Views\KazeFloorTest\**\*.cs" />
+    <Page Remove="Views\KazeFloorTest\**\*.xaml" />
+    <ApplicationDefinition Remove="Views\KazeFloorTest\**\*.xaml" />
+    <None Remove="Views\KazeFloorTest\**\*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SharpVectors.Wpf" Version="1.8.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\Icons\**\*.svg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+
+    <Content Include="Assets\Kage\**\*.svg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\Fonts\Inter\static\*.ttf" />
+    <Resource Include="Assets\Fonts\Manrope\static\*.ttf" />
+    <Resource Include="Assets\Images\kage-logo.png" />
+  </ItemGroup>
+
+</Project>

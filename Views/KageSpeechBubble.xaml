@@ -1,0 +1,49 @@
+<UserControl x:Class="KageDock.Views.KageSpeechBubble"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Visibility="Collapsed"
+             IsHitTestVisible="False"
+             Focusable="False">
+
+    <!-- Clip host: sizes itself to the bubble body and clips it, so the body
+         can slide out from behind Kage's strip along the host's left edge. -->
+    <Grid x:Name="ClipHost"
+          ClipToBounds="True">
+
+        <Grid x:Name="Body"
+            HorizontalAlignment="Left"
+            MinHeight="30"
+            MaxWidth="300">
+
+            <Grid.RenderTransform>
+                <TranslateTransform x:Name="Slide" X="0"/>
+            </Grid.RenderTransform>
+
+            <Border Background="#FF000000"
+                    BorderThickness="0"
+                    CornerRadius="8"/>
+
+            <!-- Very subtle top reflection -->
+            <Border Margin="1"
+                    CornerRadius="7"
+                    IsHitTestVisible="False">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#1EFFFFFF" Offset="0"/>
+                        <GradientStop Color="#00FFFFFF" Offset="0.55"/>
+                    </LinearGradientBrush>
+                </Border.Background>
+            </Border>
+
+            <!-- Left margin is larger because 6 px of the bubble sit under the strip. -->
+            <TextBlock x:Name="MessageText"
+                        Margin="12,7,12,7"
+                       VerticalAlignment="Center"
+                       FontFamily="Segoe UI"
+                       FontSize="12"
+                       Foreground="#FFF5F6F8"
+                       TextWrapping="Wrap"
+                       Opacity="0"><Run x:Name="PrimaryRun"/><Run x:Name="SecondaryRun" Foreground="#99FFFFFF"/></TextBlock>
+        </Grid>
+    </Grid>
+</UserControl>

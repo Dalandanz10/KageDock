@@ -1,0 +1,19 @@
+
+# Build output
+[Bb]in/
+[Oo]bj/
+.vs/
+
+# Local tooling data
+.rmv/
+
+# Logs
+*.log
+crash-log.txt
+
+# Local user data and backups
+shortcuts_backup.json
+*.backup
+
+# Generated distribution output
+KageDock-Distribution/Publish/

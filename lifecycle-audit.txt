@@ -1,0 +1,240 @@
+﻿App.xaml.cs:44: DispatcherUnhandledException += (_, args) =>
+App.xaml.cs:50: AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+App.xaml.cs:56: TaskScheduler.UnobservedTaskException += (_, args) =>
+App.xaml.cs:66: _instanceMutex.Dispose();
+App.xaml.cs:116: private async Task ListenForCommandsAsync(CancellationToken cancellationToken)
+App.xaml.cs:156: _ipcCancellation?.Dispose();
+App.xaml.cs:165: _instanceMutex?.Dispose();
+Coordinators\AddAppsSession.cs:59: private async Task LoadAppsCoreAsync()
+Coordinators\AddAppsSession.cs:66: var discovered = await Task.Run(
+Coordinators\AddAppsSession.cs:129: var storeAppsTask = Task.Run(
+Coordinators\AddAppsSession.cs:270: public async Task LoadIconsAsync(
+Services\FullscreenDetectionService.cs:8: public sealed class FullscreenDetectionService : IDisposable
+Services\IconService.cs:20: public async Task<BitmapSource?> GetIconAsync(string path)
+Services\IconService.cs:28: () => Task.Run(async () =>
+Services\KageVisibilityController.cs:9: public sealed class KageVisibilityController : IDisposable
+Services\KageVisibilityController.cs:33: _detectionService.FullscreenStateChanged += OnDetectionChanged;
+Services\KageVisibilityController.cs:83: _detectionService.FullscreenStateChanged -= OnDetectionChanged;
+Views\AddAppsWindow.xaml.cs:41: Unloaded += (_, _) => StopAppsSmoothScroll();
+Views\AddAppsWindow.xaml.cs:50: Loaded += async (_, _) => await LoadAppsAsync();
+Views\AddAppsWindow.xaml.cs:54: private async void AddAppManually_Click(
+Views\AddAppsWindow.xaml.cs:114: System.Windows.Media.CompositionTarget.Rendering
+Views\AddAppsWindow.xaml.cs:115: += SmoothAppsScroll_Rendering;
+Views\AddAppsWindow.xaml.cs:170: System.Windows.Media.CompositionTarget.Rendering
+Views\AddAppsWindow.xaml.cs:171: -= SmoothAppsScroll_Rendering;
+Views\AddAppsWindow.xaml.cs:184: private async Task LoadAppsAsync()
+Views\AddAppsWindow.xaml.cs:289: tile.MouseLeftButtonUp += (_, _) =>
+Views\AddAppsWindow.xaml.cs:383: fadeIn.Completed += (_, _) =>
+Views\AddAppsWindow.xaml.cs:397: fadeOut.Completed += (_, _) =>
+Views\DockWindow.DragDrop.cs:116: slideY.Completed += (_, _) =>
+Views\DockWindow.DragDrop.cs:176: fadeOut.Completed += (_, _) =>
+Views\DockWindow.DragDrop.cs:270: leftAnimation.Completed += (_, _) =>
+Views\DockWindow.DragDrop.cs:415: _dragAutoScrollTimer = new DispatcherTimer
+Views\DockWindow.DragDrop.cs:420: _dragAutoScrollTimer.Tick += (_, _) =>
+Views\DockWindow.Navigation.cs:30: private async Task TransitionPageContentAsync(Action swapContent)
+Views\DockWindow.Navigation.cs:136: fade.Completed += (_, _) =>
+Views\DockWindow.Navigation.cs:190: private async void TimerButton_Click(object sender, RoutedEventArgs e)
+Views\DockWindow.Navigation.cs:228: private async void MusicButton_Click(object sender, RoutedEventArgs e)
+Views\DockWindow.Navigation.cs:249: _musicIslandView.ReactionRequested += ShowKageReaction;
+Views\DockWindow.Navigation.cs:251: _musicIslandView.PlaybackStateChanged += MusicIslandView_PlaybackStateChanged;
+Views\DockWindow.Navigation.cs:304: _addAppsView.BackRequested += () =>
+Views\DockWindow.Navigation.cs:325: _addAppsView.Finished += () =>
+Views\DockWindow.Reveal.cs:277: widthAnimation.Completed += (_, _) =>
+Views\DockWindow.Reveal.cs:424: _hideTimer = new DispatcherTimer(
+Views\DockWindow.Reveal.cs:429: _hideTimer.Tick += (_, _) =>
+Views\DockWindow.Reveal.cs:653: widthFrames.Completed += (_, _) =>
+Views\DockWindow.Scrolling.cs:67: System.Windows.Media.CompositionTarget.Rendering
+Views\DockWindow.Scrolling.cs:68: -= SmoothScroll_Rendering;
+Views\DockWindow.Scrolling.cs:96: System.Windows.Media.CompositionTarget.Rendering
+Views\DockWindow.Scrolling.cs:97: += SmoothScroll_Rendering;
+Views\DockWindow.Sections.cs:135: editor.KeyDown += (_, e) =>
+Views\DockWindow.Sections.cs:149: editor.LostKeyboardFocus += (_, _) => Finish(true);
+Views\DockWindow.Sections.cs:341: _newSectionDropZone.DragOver += Section_DragOver;
+Views\DockWindow.Sections.cs:342: _newSectionDropZone.Drop += Section_Drop;
+Views\DockWindow.Sections.cs:343: _newSectionDropZone.DragLeave += NewSectionDropZone_DragLeave;
+Views\DockWindow.Sections.cs:382: title.MouseEnter += (_, _) =>
+Views\DockWindow.Sections.cs:393: title.MouseLeave += (_, _) =>
+Views\DockWindow.Sections.cs:404: title.MouseLeftButtonDown += (_, e) =>
+Views\DockWindow.Sections.cs:413: title.MouseRightButtonUp += (_, e) =>
+Views\DockWindow.Sections.cs:422: header.DragOver += Section_DragOver;
+Views\DockWindow.Sections.cs:423: header.Drop += Section_Drop;
+Views\DockWindow.Sections.cs:438: grid.DragOver += Section_DragOver;
+Views\DockWindow.Sections.cs:439: grid.DragLeave += Section_DragLeave;
+Views\DockWindow.Sections.cs:440: grid.Drop += Section_Drop;
+Views\DockWindow.Sections.cs:475: emptySlot.DragOver += Section_DragOver;
+Views\DockWindow.Sections.cs:476: emptySlot.Drop += Section_Drop;
+Views\DockWindow.Tiles.cs:151: tile.MouseEnter += (_, _) =>
+Views\DockWindow.Tiles.cs:209: tile.MouseLeave += (_, _) =>
+Views\DockWindow.Tiles.cs:247: tile.PreviewMouseLeftButtonDown += (_, e) =>
+Views\DockWindow.Tiles.cs:254: tile.MouseMove += async (_, e) =>
+Views\DockWindow.Tiles.cs:320: System.Windows.Media.CompositionTarget.Rendering
+Views\DockWindow.Tiles.cs:321: += UpdateFloatingDragVisual;
+Views\DockWindow.Tiles.cs:348: System.Windows.Media.CompositionTarget.Rendering
+Views\DockWindow.Tiles.cs:349: -= UpdateFloatingDragVisual;
+Views\DockWindow.Tiles.cs:436: tile.PreviewMouseLeftButtonUp += (_, e) =>
+Views\DockWindow.Tiles.cs:453: tile.MouseRightButtonUp += (_, e) =>
+Views\DockWindow.Tiles.cs:516: item.MouseEnter += (_, _) =>
+Views\DockWindow.Tiles.cs:520: item.MouseLeave += (_, _) =>
+Views\DockWindow.Tiles.cs:524: item.MouseLeftButtonUp += (_, click) =>
+Views\DockWindow.Tiles.cs:574: fade.Completed += (_, _) =>
+Views\DockWindow.Tiles.cs:586: menu.Opened += (_, _) =>
+Views\DockWindow.Tiles.cs:592: menu.Closed += (_, _) =>
+Views\DockWindow.Tiles.cs:607: tile.DragOver += Section_DragOver;
+Views\DockWindow.Tiles.cs:608: tile.Drop += Section_Drop;
+Views\DockWindow.Tiles.cs:613: private async Task LoadTileIconAsync(AppShortcut shortcut)
+Views\DockWindow.Tiles.cs:769: input.KeyDown += (_, e) =>
+Views\DockWindow.Tiles.cs:783: input.LostKeyboardFocus += (_, _) =>
+Views\DockWindow.xaml.cs:40: private DispatcherTimer? _dragAutoScrollTimer;
+Views\DockWindow.xaml.cs:52: private DispatcherTimer? _hideTimer;
+Views\DockWindow.xaml.cs:72: private DispatcherTimer? _environmentalEffectTimer;
+Views\DockWindow.xaml.cs:79: private DispatcherTimer? _kageIdleTimer;
+Views\DockWindow.xaml.cs:111: SectionsPanel.Drop += Section_Drop;
+Views\DockWindow.xaml.cs:113: SourceInitialized += (_, _) => SetupTrayIcon();
+Views\DockWindow.xaml.cs:197: KazeSunlitBreeze.BurstStarted -= KazeSunlitBreeze_BurstStarted;
+Views\DockWindow.xaml.cs:198: KazeSunlitBreeze.BurstStarted += KazeSunlitBreeze_BurstStarted;
+Views\DockWindow.xaml.cs:215: KageBubble.Closed -= KageBubble_Closed;
+Views\DockWindow.xaml.cs:216: KageBubble.Closed += KageBubble_Closed;
+Views\DockWindow.xaml.cs:238: _musicIslandView.ReactionRequested += ShowKageReaction;
+Views\DockWindow.xaml.cs:240: _musicIslandView.PlaybackStateChanged += MusicIslandView_PlaybackStateChanged;
+Views\DockWindow.xaml.cs:259: _environmentalEffectTimer ??= new DispatcherTimer();
+Views\DockWindow.xaml.cs:262: _environmentalEffectTimer.Tick -= EnvironmentalEffectTimer_Tick;
+Views\DockWindow.xaml.cs:263: _environmentalEffectTimer.Tick += EnvironmentalEffectTimer_Tick;
+Views\DockWindow.xaml.cs:574: _kageIdleTimer = new DispatcherTimer
+Views\DockWindow.xaml.cs:579: _kageIdleTimer.Tick += KageIdleTimer_Tick;
+Views\DockWindow.xaml.cs:856: _trayIcon.DoubleClick += (_, _) => Dispatcher.Invoke(OpenSettings);
+Views\DockWindow.xaml.cs:911: save.Click += (_, _) => { dialog.DialogResult = true; dialog.Close(); };
+Views\DockWindow.xaml.cs:940: settings.Closed += (_, _) =>
+Views\DockWindow.xaml.cs:959: _timeSuiteView?.Shutdown();
+Views\DockWindow.xaml.cs:962: _musicIslandView?.Shutdown();
+Views\DockWindow.xaml.cs:981: KazeSunlitBreeze.BurstStarted -= KazeSunlitBreeze_BurstStarted;
+Views\DockWindow.xaml.cs:986: _environmentalEffectTimer.Tick -= EnvironmentalEffectTimer_Tick;
+Views\DockWindow.xaml.cs:991: KazeSunlitBreeze.Dispose();
+Views\DockWindow.xaml.cs:994: KageBubble.Closed -= KageBubble_Closed;
+Views\DockWindow.xaml.cs:997: _kageVisibilityController?.Dispose();
+Views\DockWindow.xaml.cs:1000: _fullscreenDetectionService?.Dispose();
+Views\DockWindow.xaml.cs:1003: _kageController?.Dispose();
+Views\DockWindow.xaml.cs:1006: _kageEffectController?.Dispose();
+Views\DockWindow.xaml.cs:1010: _trayIcon?.Dispose();
+Views\DockWindow.xaml.cs:1013: _trayMenu?.Dispose();
+Views\KageCrimsonEffect.xaml.cs:131: Unloaded += (_, _) => Cancel();
+Views\KageCrimsonEffect.xaml.cs:333: time += 55 + _random.NextDouble() * 115;
+Views\KageCrimsonEffect.xaml.cs:335: time += 190 + _random.NextDouble() * 390;
+Views\KageCrimsonEffect.xaml.cs:339: time += 70 + _random.NextDouble() * 170;
+Views\KageCrimsonEffect.xaml.cs:429: angle += (_random.NextDouble() < 0.5 ? -1 : 1)
+Views\KageCrimsonEffect.xaml.cs:660: animation.Completed += (_, _) =>
+Views\KageDialogueController.cs:86: roll -= item.Weight;
+Views\KageEmberEffect.xaml.cs:82: Unloaded += (_, _) => Cancel();
+Views\KageEmberEffect.xaml.cs:168: longest.Completed += (_, _) =>
+Views\KageExpressionEffectController.cs:11: internal sealed class KageExpressionEffectController : IDisposable
+Views\KageExpressionEffectController.cs:96: fade.Completed += (_, _) =>
+Views\KageEyeController.cs:10: public sealed class KageEyeController : IDisposable
+Views\KageEyeController.cs:34: private readonly DispatcherTimer _gazeTimer;
+Views\KageEyeController.cs:36: private readonly DispatcherTimer _blinkTimer;
+Views\KageEyeController.cs:44: private readonly DispatcherTimer _expressionTimer;
+Views\KageEyeController.cs:79: private readonly DispatcherTimer _sleepSequenceTimer;
+Views\KageEyeController.cs:158: _blinkTimer = new DispatcherTimer(
+Views\KageEyeController.cs:161: _blinkTimer.Tick += BlinkTimer_Tick;
+Views\KageEyeController.cs:163: _gazeTimer = new DispatcherTimer(
+Views\KageEyeController.cs:166: _gazeTimer.Tick += GazeTimer_Tick;
+Views\KageEyeController.cs:168: _expressionTimer = new DispatcherTimer(DispatcherPriority.Background);
+Views\KageEyeController.cs:169: _expressionTimer.Tick += ExpressionTimer_Tick;
+Views\KageEyeController.cs:172: _sleepSequenceTimer = new DispatcherTimer(DispatcherPriority.Background);
+Views\KageEyeController.cs:174: _sleepSequenceTimer.Tick += SleepSequenceTimer_Tick;
+Views\KageEyeController.cs:374: animation.Completed += (_, _) =>
+Views\KageEyeController.cs:592: animation.Completed += (_, _) =>
+Views\KageEyeController.cs:707: shake.Completed += (_, _) =>
+Views\KageEyeController.cs:784: rightOpen.Completed += (_, _) =>
+Views\KageEyeController.cs:1165: animation.Completed += (_, _) =>
+Views\KageEyeController.cs:1542: _blinkTimer.Tick -= BlinkTimer_Tick;
+Views\KageEyeController.cs:1543: _gazeTimer.Tick -= GazeTimer_Tick;
+Views\KageEyeController.cs:1544: _expressionTimer.Tick -= ExpressionTimer_Tick;
+Views\KageEyeController.cs:1545: _sleepSequenceTimer.Tick -= SleepSequenceTimer_Tick;
+Views\KageSpeechBubble.xaml.cs:33: Unloaded += (_, _) => Dismiss();
+Views\KageSpeechBubble.xaml.cs:78: slide.Completed += (_, _) =>
+Views\KageYozakuraEffect.xaml.cs:95: Unloaded += (_, _) => Cancel();
+Views\KageYozakuraEffect.xaml.cs:248: longest.Completed += (_, _) =>
+Views\KazeSunlitBreezeEffect.xaml.cs:22: System.Windows.Controls.UserControl, IDisposable
+Views\KazeSunlitBreezeEffect.xaml.cs:57: private readonly DispatcherTimer _timer = new();
+Views\KazeSunlitBreezeEffect.xaml.cs:231: _timer.Tick += Timer_Tick;
+Views\KazeSunlitBreezeEffect.xaml.cs:233: Unloaded += KazeSunlitBreezeEffect_Unloaded;
+Views\KazeSunlitBreezeEffect.xaml.cs:234: IsVisibleChanged += KazeSunlitBreezeEffect_IsVisibleChanged;
+Views\KazeSunlitBreezeEffect.xaml.cs:517: gap += Between(lullMin, lullMax);
+Views\KazeSunlitBreezeEffect.xaml.cs:635: envelope.Completed += (_, _) =>
+Views\KazeSunlitBreezeEffect.xaml.cs:805: for (double y = 0; y <= 30; y += 2)
+Views\KazeSunlitBreezeEffect.xaml.cs:807: for (double x = 0; x <= 100; x += 2)
+Views\KazeSunlitBreezeEffect.xaml.cs:1150: envelope.Completed += (_, _) =>
+Views\KazeSunlitBreezeEffect.xaml.cs:1284: envelope.Completed += (_, _) =>
+Views\KazeSunlitBreezeEffect.xaml.cs:1437: envelope.Completed += (_, _) =>
+Views\KazeSunlitBreezeEffect.xaml.cs:1745: _timer.Tick -= Timer_Tick;
+Views\KazeSunlitBreezeEffect.xaml.cs:1747: Unloaded -= KazeSunlitBreezeEffect_Unloaded;
+Views\KazeSunlitBreezeEffect.xaml.cs:1748: IsVisibleChanged -= KazeSunlitBreezeEffect_IsVisibleChanged;
+Views\MusicIslandView.xaml.cs:66: PreviousButton.Click += PreviousButton_Click;
+Views\MusicIslandView.xaml.cs:67: PlayPauseButton.Click += PlayPauseButton_Click;
+Views\MusicIslandView.xaml.cs:68: NextButton.Click += NextButton_Click;
+Views\MusicIslandView.xaml.cs:70: ShuffleButton.Click += ShuffleButton_Click;
+Views\MusicIslandView.xaml.cs:71: RepeatButton.Click += RepeatButton_Click;
+Views\MusicIslandView.xaml.cs:73: Loaded += MusicIslandView_Loaded;
+Views\MusicIslandView.xaml.cs:74: Unloaded += MusicIslandView_Unloaded;
+Views\MusicIslandView.xaml.cs:78: private async void MusicIslandView_Loaded(object sender, RoutedEventArgs e)
+Views\MusicIslandView.xaml.cs:102: private async void ProgressThumb_DragCompleted(
+Views\MusicIslandView.xaml.cs:225: CompositionTarget.Rendering -= CompositionTarget_Rendering;
+Views\MusicIslandView.xaml.cs:253: private async void RepeatButton_Click(object sender, RoutedEventArgs e)
+Views\MusicIslandView.xaml.cs:288: private async void ShuffleButton_Click(object sender, RoutedEventArgs e)
+Views\MusicIslandView.xaml.cs:309: private async void PreviousButton_Click(object sender, RoutedEventArgs e)
+Views\MusicIslandView.xaml.cs:332: private async void PlayPauseButton_Click(object sender, RoutedEventArgs e)
+Views\MusicIslandView.xaml.cs:348: private async void NextButton_Click(object sender, RoutedEventArgs e)
+Views\MusicIslandView.xaml.cs:370: private async void Spotify_TimelinePropertiesChanged(
+Views\MusicIslandView.xaml.cs:410: predictedPosition += _progressClock.Elapsed.TotalSeconds;
+Views\MusicIslandView.xaml.cs:453: displayPosition += _progressClock.Elapsed.TotalSeconds;
+Views\MusicIslandView.xaml.cs:550: _particleSpawnAccumulator += delta;
+Views\MusicIslandView.xaml.cs:554: _particleSpawnAccumulator -= 0.045;
+Views\MusicIslandView.xaml.cs:570: particle.Age += delta;
+Views\MusicIslandView.xaml.cs:579: particle.X += particle.VelocityX * delta;
+Views\MusicIslandView.xaml.cs:580: particle.Y += particle.VelocityY * delta;
+Views\MusicIslandView.xaml.cs:601: CompositionTarget.Rendering -= CompositionTarget_Rendering;
+Views\MusicIslandView.xaml.cs:639: private async Task SeekToPositionAsync()
+Views\MusicIslandView.xaml.cs:709: private async Task InitializeMediaCoreAsync()
+Views\MusicIslandView.xaml.cs:724: _manager = await Task.Run(async () =>
+Views\MusicIslandView.xaml.cs:733: _manager.SessionsChanged += Manager_SessionsChanged;
+Views\MusicIslandView.xaml.cs:734: _manager.CurrentSessionChanged += Manager_CurrentSessionChanged;
+Views\MusicIslandView.xaml.cs:753: CompositionTarget.Rendering -= CompositionTarget_Rendering;
+Views\MusicIslandView.xaml.cs:788: CompositionTarget.Rendering -= CompositionTarget_Rendering;
+Views\MusicIslandView.xaml.cs:799: _manager.SessionsChanged -= Manager_SessionsChanged;
+Views\MusicIslandView.xaml.cs:800: _manager.CurrentSessionChanged -= Manager_CurrentSessionChanged;
+Views\MusicIslandView.xaml.cs:806: _spotifySession.MediaPropertiesChanged -= Spotify_MediaPropertiesChanged;
+Views\MusicIslandView.xaml.cs:807: _spotifySession.PlaybackInfoChanged -= Spotify_PlaybackInfoChanged;
+Views\MusicIslandView.xaml.cs:808: _spotifySession.TimelinePropertiesChanged -= Spotify_TimelinePropertiesChanged;
+Views\MusicIslandView.xaml.cs:823: private async void Manager_SessionsChanged(
+Views\MusicIslandView.xaml.cs:833: private async void Manager_CurrentSessionChanged(
+Views\MusicIslandView.xaml.cs:842: private async Task FindSpotifySessionAsync()
+Views\MusicIslandView.xaml.cs:864: _spotifySession.MediaPropertiesChanged -= Spotify_MediaPropertiesChanged;
+Views\MusicIslandView.xaml.cs:865: _spotifySession.PlaybackInfoChanged -= Spotify_PlaybackInfoChanged;
+Views\MusicIslandView.xaml.cs:866: _spotifySession.TimelinePropertiesChanged -= Spotify_TimelinePropertiesChanged;
+Views\MusicIslandView.xaml.cs:894: CompositionTarget.Rendering -= CompositionTarget_Rendering;
+Views\MusicIslandView.xaml.cs:920: _spotifySession.MediaPropertiesChanged -= Spotify_MediaPropertiesChanged;
+Views\MusicIslandView.xaml.cs:921: _spotifySession.PlaybackInfoChanged -= Spotify_PlaybackInfoChanged;
+Views\MusicIslandView.xaml.cs:922: _spotifySession.TimelinePropertiesChanged -= Spotify_TimelinePropertiesChanged;
+Views\MusicIslandView.xaml.cs:932: _spotifySession.MediaPropertiesChanged += Spotify_MediaPropertiesChanged;
+Views\MusicIslandView.xaml.cs:933: _spotifySession.PlaybackInfoChanged += Spotify_PlaybackInfoChanged;
+Views\MusicIslandView.xaml.cs:934: _spotifySession.TimelinePropertiesChanged += Spotify_TimelinePropertiesChanged;
+Views\MusicIslandView.xaml.cs:948: private async void Spotify_MediaPropertiesChanged(
+Views\MusicIslandView.xaml.cs:990: private async void Spotify_PlaybackInfoChanged(
+Views\MusicIslandView.xaml.cs:1006: private async Task RefreshTrackAsync()
+Views\MusicIslandView.xaml.cs:1140: BitmapImage bitmap = await Task.Run(() =>
+Views\MusicIslandView.xaml.cs:1177: private async Task RefreshPlaybackAsync()
+Views\MusicIslandView.xaml.cs:1265: CompositionTarget.Rendering += CompositionTarget_Rendering;
+Views\MusicIslandView.xaml.cs:1271: CompositionTarget.Rendering -= CompositionTarget_Rendering;
+Views\TimeSuiteView.xaml.cs:17: private readonly DispatcherTimer _timer;
+Views\TimeSuiteView.xaml.cs:37: _timer = new DispatcherTimer
+Views\TimeSuiteView.xaml.cs:42: _timer.Tick += Timer_Tick;
+Views\TimeSuiteView.xaml.cs:44: TimerTab.Click += (_, _) => SwitchMode("Timer");
+Views\TimeSuiteView.xaml.cs:45: StopwatchTab.Click += (_, _) => SwitchMode("Stopwatch");
+Views\TimeSuiteView.xaml.cs:47: PrimaryButton.Click += PrimaryButton_Click;
+Views\TimeSuiteView.xaml.cs:48: ResetButton.Click += ResetButton_Click;
+Views\TimeSuiteView.xaml.cs:50: StopwatchPrimaryButton.Click += StopwatchPrimaryButton_Click;
+Views\TimeSuiteView.xaml.cs:51: StopwatchResetButton.Click += StopwatchResetButton_Click;
+Views\TimeSuiteView.xaml.cs:52: LapButton.Click += LapButton_Click;
+Views\TimeSuiteView.xaml.cs:252: CompositionTarget.Rendering += Ring_Rendering;
+Views\TimeSuiteView.xaml.cs:260: CompositionTarget.Rendering -= Ring_Rendering;
+Views\TimeSuiteView.xaml.cs:423: _stopwatchElapsed +=
+Views\TimeSuiteView.xaml.cs:479: elapsed += DateTime.UtcNow - _stopwatchStartedAt;

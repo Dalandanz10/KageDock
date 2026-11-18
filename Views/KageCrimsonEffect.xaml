@@ -1,0 +1,94 @@
+<UserControl x:Class="KageDock.Views.KageCrimsonEffect"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:svg="http://sharpvectors.codeplex.com/svgc/"
+             Width="100"
+             Height="30"
+             Visibility="Collapsed"
+             IsHitTestVisible="False"
+             Focusable="False"
+             ClipToBounds="True">
+
+    <Canvas x:Name="Layer"
+            Width="100"
+            Height="30"
+            ClipToBounds="True"
+            IsHitTestVisible="False">
+
+        <!-- Low-level crimson atmosphere -->
+        <Ellipse x:Name="AmbientGlow"
+                 Canvas.Left="-12"
+                 Canvas.Top="-12"
+                 Width="124"
+                 Height="54"
+                 Opacity="0">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Color="#557A0A1A" Offset="0"/>
+                    <GradientStop Color="#337A0A1A" Offset="0.55"/>
+                    <GradientStop Color="#007A0A1A" Offset="1"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+        </Ellipse>
+
+        <!-- Eye halos sit behind the exact crimson eye artwork -->
+        <Ellipse x:Name="LeftEyeAura"
+                 Canvas.Left="15"
+                 Canvas.Top="3"
+                 Width="38"
+                 Height="24"
+                 Opacity="0">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Color="#A8DC143C" Offset="0"/>
+                    <GradientStop Color="#557A0A1A" Offset="0.48"/>
+                    <GradientStop Color="#007A0A1A" Offset="1"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+        </Ellipse>
+
+        <Ellipse x:Name="RightEyeAura"
+                 Canvas.Left="47"
+                 Canvas.Top="3"
+                 Width="38"
+                 Height="24"
+                 Opacity="0">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Color="#A8DC143C" Offset="0"/>
+                    <GradientStop Color="#557A0A1A" Offset="0.48"/>
+                    <GradientStop Color="#007A0A1A" Offset="1"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+        </Ellipse>
+
+        <!-- Exact copies of the original eye paths, recolored crimson -->
+        <svg:SvgViewbox x:Name="CrimsonEyeLeft"
+                        Width="24"
+                        Height="13"
+                        Canvas.Left="22"
+                        Canvas.Top="8.5"
+                        Source="pack://siteoforigin:,,,/Assets/Kage/KageEyeLeftCrimson.svg"
+                        Opacity="0"
+                        IsHitTestVisible="False"/>
+
+        <svg:SvgViewbox x:Name="CrimsonEyeRight"
+                        Width="24"
+                        Height="13"
+                        Canvas.Left="54"
+                        Canvas.Top="8.5"
+                        Source="pack://siteoforigin:,,,/Assets/Kage/KageEyeRightCrimson.svg"
+                        Opacity="0"
+                        IsHitTestVisible="False"/>
+
+        <!-- Six pooled lightning slots are created once in code-behind. -->
+
+        <!-- Brief environmental flash, above the bolts -->
+        <Rectangle x:Name="EnvironmentalFlash"
+                   Width="100"
+                   Height="30"
+                   Fill="#30FF2638"
+                   Opacity="0"
+                   IsHitTestVisible="False"/>
+    </Canvas>
+</UserControl>
