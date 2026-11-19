@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
+using KageDock.Engines;
 
 namespace KageDock.Views
 {
@@ -13,22 +14,22 @@ namespace KageDock.Views
     {
         private static readonly TimeSpan InitialDuration =
             TimeSpan.FromMinutes(5);
+        private readonly CountdownTimerEngine _countdown =
+            new(InitialDuration);
 
         private readonly DispatcherTimer _timer;
 
-        private TimeSpan _configuredDuration = InitialDuration;
-        private TimeSpan _remaining = InitialDuration;
-        private DateTime _endTime;
         private bool _isShutdown;
 
-        private bool _timerRunning;
         private bool _warningActive;
-        private bool _completed;
+
+        private bool TimerIsRunning => _countdown.IsRunning;
+        private bool TimerIsCompleted => _countdown.IsCompleted;
+        private TimeSpan TimerRemaining => _countdown.Remaining;
+        private TimeSpan TimerConfiguredDuration =>
+            _countdown.ConfiguredDuration;
         private bool _ringRenderingActive;
-        private bool _stopwatchRunning;
-        private DateTime _stopwatchStartedAt;
-        private TimeSpan _stopwatchElapsed;
-        private int _lapNumber;
+        private readonly StopwatchEngine _stopwatch = new();
 
         public TimeSuiteView()
         {
@@ -100,11 +101,10 @@ namespace KageDock.Views
             object sender,
             RoutedEventArgs e)
         {
-            if (_timerRunning)
+            if (_countdown.IsRunning)
             {
-                UpdateRemaining();
+                _countdown.Pause();
 
-                _timerRunning = false;
                 StopRingRendering();
 
                 PrimaryButton.Content = "Resume";
@@ -116,7 +116,7 @@ namespace KageDock.Views
                 return;
             }
 
-            if (_completed || _remaining <= TimeSpan.Zero)
+            if (TimerIsCompleted || TimerRemaining <= TimeSpan.Zero)
             {
                 if (!TryReadDuration(out TimeSpan duration))
                 {
@@ -124,9 +124,7 @@ namespace KageDock.Views
                     return;
                 }
 
-                _configuredDuration = duration;
-                _remaining = duration;
-                _completed = false;
+                _countdown.Reset(duration);
                 TimerAlertText.Text = "";
             }
             else if (PrimaryButton.Content?.ToString() == "Start")
@@ -137,19 +135,18 @@ namespace KageDock.Views
                     return;
                 }
 
-                _configuredDuration = duration;
-                _remaining = duration;
+                _countdown.Reset(duration);
                 TimerAlertText.Text = "";
             }
 
-            if (_remaining <= TimeSpan.Zero)
+            if (TimerRemaining <= TimeSpan.Zero)
             {
                 TimerAlertText.Text = "Set a duration greater than zero.";
                 return;
             }
 
-            _endTime = DateTime.UtcNow + _remaining;
-            _timerRunning = true;
+            if (!_countdown.Start())
+                return;
 
             PrimaryButton.Content = "Pause";
             StatusText.Text = "COUNTDOWN IN PROGRESS";
@@ -193,14 +190,11 @@ namespace KageDock.Views
             object sender,
             RoutedEventArgs e)
         {
-            _timerRunning = false;
+            _countdown.Reset(InitialDuration);
+
             StopRingRendering();
 
-            _completed = false;
             _warningActive = false;
-
-            _configuredDuration = InitialDuration;
-            _remaining = InitialDuration;
 
             HoursInput.Text = "00";
             MinutesInput.Text = "05";
@@ -217,31 +211,26 @@ namespace KageDock.Views
             UpdateScheduler();
         }
 
-        private void UpdateRemaining()
-        {
-            _remaining = _endTime - DateTime.UtcNow;
-
-            if (_remaining < TimeSpan.Zero)
-                _remaining = TimeSpan.Zero;
-        }
 
         private void UpdateTimerDisplay()
         {
-            TimeDisplay.Text = _remaining.TotalHours >= 1
-                ? $"{(int)_remaining.TotalHours:00}:{_remaining.Minutes:00}:{_remaining.Seconds:00}"
-                : $"{_remaining.Minutes:00}:{_remaining.Seconds:00}";
+            TimeDisplay.Text = TimerRemaining.TotalHours >= 1
+                ? $"{(int)TimerRemaining.TotalHours:00}:{TimerRemaining.Minutes:00}:{TimerRemaining.Seconds:00}"
+                : $"{TimerRemaining.Minutes:00}:{TimerRemaining.Seconds:00}";
 
             UpdateWarningState();
         }
        private void Ring_Rendering(object? sender, EventArgs e)
         {
-            if (_isShutdown || !_timerRunning)
+            if (_isShutdown || !TimerIsRunning)
             {
                 StopRingRendering();
                 return;
             }
 
-            UpdateRemaining();
+            if (_countdown.Update())
+                CompleteTimer();
+
             UpdateProgressRing();
         }
         private void StartRingRendering()
@@ -270,9 +259,9 @@ namespace KageDock.Views
             double center = canvasSize / 2;
             double radius = (ringSize - stroke) / 2;
 
-            double progress = _configuredDuration.TotalSeconds > 0
-                ? _remaining.TotalSeconds / _configuredDuration.TotalSeconds
-                : 0;
+            double progress = TimerConfiguredDuration.TotalSeconds > 0
+            ? TimerRemaining.TotalSeconds / TimerConfiguredDuration.TotalSeconds
+            : 0;
 
             progress = Math.Clamp(progress, 0, 1);
 
@@ -339,9 +328,9 @@ namespace KageDock.Views
         private void UpdateWarningState()
         {
             bool shouldWarn =
-                _timerRunning &&
-                _remaining > TimeSpan.Zero &&
-                _remaining <= TimeSpan.FromSeconds(10);
+                TimerIsRunning &&
+                TimerRemaining > TimeSpan.Zero &&
+                TimerRemaining <= TimeSpan.FromSeconds(10);
 
             if (shouldWarn == _warningActive)
                 return;
@@ -418,18 +407,14 @@ namespace KageDock.Views
             object sender,
             RoutedEventArgs e)
         {
-            if (_stopwatchRunning)
+            if (_stopwatch.IsRunning)
             {
-                _stopwatchElapsed +=
-                    DateTime.UtcNow - _stopwatchStartedAt;
-
-                _stopwatchRunning = false;
+                _stopwatch.Pause();
                 StopwatchPrimaryButton.Content = "Resume";
             }
             else
             {
-                _stopwatchStartedAt = DateTime.UtcNow;
-                _stopwatchRunning = true;
+                _stopwatch.Start();
                 StopwatchPrimaryButton.Content = "Pause";
             }
 
@@ -442,9 +427,7 @@ namespace KageDock.Views
             object sender,
             RoutedEventArgs e)
         {
-            _stopwatchRunning = false;
-            _stopwatchElapsed = TimeSpan.Zero;
-            _lapNumber = 0;
+            _stopwatch.Reset();
 
             StopwatchPrimaryButton.Content = "Start";
             LapList.Items.Clear();
@@ -457,29 +440,19 @@ namespace KageDock.Views
             object sender,
             RoutedEventArgs e)
         {
-            if (!_stopwatchRunning)
+            if (!_stopwatch.IsRunning)
                 return;
 
-            TimeSpan elapsed = _stopwatchElapsed +
-                (DateTime.UtcNow - _stopwatchStartedAt);
-
-            _lapNumber++;
+            TimeSpan elapsed = _stopwatch.RecordLap();
 
             LapList.Items.Insert(
                 0,
-                $"Lap {_lapNumber:00}     {FormatStopwatch(elapsed)}");
+                $"Lap {_stopwatch.LapNumber:00}     {FormatStopwatch(elapsed)}");
         }
 
         private void UpdateStopwatchDisplay()
         {
-            TimeSpan elapsed = _stopwatchElapsed;
-
-            if (_stopwatchRunning)
-            {
-                elapsed += DateTime.UtcNow - _stopwatchStartedAt;
-            }
-
-            StopwatchDisplay.Text = FormatStopwatch(elapsed);
+            StopwatchDisplay.Text = FormatStopwatch(_stopwatch.Elapsed);
         }
 
         private static string FormatStopwatch(TimeSpan elapsed)
@@ -502,7 +475,7 @@ namespace KageDock.Views
                 return;
             }
 
-            bool needsTicks = _timerRunning || _stopwatchRunning;
+            bool needsTicks = TimerIsRunning || _stopwatch.IsRunning;
 
             if (needsTicks)
             {
@@ -523,44 +496,44 @@ namespace KageDock.Views
                 return;
             }
 
-            if (_timerRunning)
+            if (TimerIsRunning)
             {
-                UpdateRemaining();
-
-                if (_remaining <= TimeSpan.Zero)
-                {
-                    _remaining = TimeSpan.Zero;
-                    _timerRunning = false;
-                    StopRingRendering();
-
-                    _completed = true;
-
-                    PrimaryButton.Content = "Start";
-                    StatusText.Text = "TIME'S UP!";
-                    TimerAlertText.Text = "Timer complete!";
-
-                    StopWarningAnimation();
-
-                    try
-                    {
-                        SystemSounds.Exclamation.Play();
-                    }
-                    catch
-                    {
-                        // Keep the visual completion state if sound fails.
-                    }
-
-                    UpdateProgressRing();
-                }
+                if (_countdown.Update())
+                    CompleteTimer();
 
                 UpdateTimerDisplay();
             }
 
-            if (_stopwatchRunning)
+            if (_stopwatch.IsRunning)
                 UpdateStopwatchDisplay();
 
             UpdateScheduler();
         }
+
+        private void CompleteTimer()
+        {
+            StopRingRendering();
+
+            PrimaryButton.Content = "Start";
+            StatusText.Text = "TIME'S UP!";
+            TimerAlertText.Text = "Timer complete!";
+
+            StopWarningAnimation();
+
+            try
+            {
+                SystemSounds.Exclamation.Play();
+            }
+            catch
+            {
+                // Keep the visual completion state if sound fails.
+            }
+
+            UpdateTimerDisplay();
+            UpdateProgressRing();
+            UpdateScheduler();
+        }
+
         public void Shutdown()
         {
             if (_isShutdown)
@@ -570,8 +543,8 @@ namespace KageDock.Views
 
             _timer.Stop();
 
-            _timerRunning = false;
-            _stopwatchRunning = false;
+            _countdown.Pause();
+            _stopwatch.Pause();
 
             StopRingRendering();
             StopWarningAnimation();
@@ -599,10 +572,10 @@ namespace KageDock.Views
             {
                 UpdateScheduler();
 
-                if (_timerRunning)
+                if (TimerIsRunning)
                     StartRingRendering();
 
-                if (_warningActive && _timerRunning)
+                if (_warningActive && TimerIsRunning)
                     StartWarningPulseAnimation();
             }
         }

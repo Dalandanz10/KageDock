@@ -2,13 +2,17 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Diagnostics;
+using KageDock.Modules;
 namespace KageDock.Views
+
 {
     public partial class DockWindow
     {
              private void SectionsButton_Click(object sender, RoutedEventArgs e)
         {
             _dockContentAnimationController?.InvalidatePendingPageTransition();
+
+            _contentHost.DeactivateActive();
 
             _dockContentAnimationController?.MoveNavIndicator(0);
 
@@ -64,13 +68,12 @@ namespace KageDock.Views
                 _addAppsView = null;
             }
 
-            if (_timeSuiteView == null)
-                _timeSuiteView = new TimeSuiteView();
+            var timerModule = _contentHost.Activate("timer");
 
             await _dockContentAnimationController!.TransitionPageContentAsync(() =>
             {
                 AddAppsContent.Children.Clear();
-                AddAppsContent.Children.Add(_timeSuiteView);
+                AddAppsContent.Children.Add(timerModule.View);
 
                 AddAppsContent.Visibility = Visibility.Visible;
                 AddAppsContent.IsHitTestVisible = true;
@@ -86,7 +89,7 @@ namespace KageDock.Views
         
         private async void MusicButton_Click(object sender, RoutedEventArgs e)
         {
-           _dockContentAnimationController?.MoveNavIndicator(1);
+            _dockContentAnimationController?.MoveNavIndicator(1);
 
             CancelCollapseTimer();
 
@@ -96,18 +99,18 @@ namespace KageDock.Views
                 return;
             }
 
+            var musicModule = (MusicModule)_contentHost.Activate("music");
+
             if (_addAppsView != null)
             {
                 AddAppsContent.Children.Clear();
                 _addAppsView = null;
             }
 
-            EnsureMusicIslandView();
-
             await _dockContentAnimationController!.TransitionPageContentAsync(() =>
             {
                 AddAppsContent.Children.Clear();
-                AddAppsContent.Children.Add(_musicIslandView);
+                AddAppsContent.Children.Add(musicModule.View);
 
                 AddAppsContent.Visibility = Visibility.Visible;
                 AddAppsContent.IsHitTestVisible = true;
@@ -119,7 +122,6 @@ namespace KageDock.Views
 
                 MorphDockToView(DockView.Music);
             });
-
         }
 
         private void AddAppsButton_Click(object sender, RoutedEventArgs e)
@@ -134,6 +136,8 @@ namespace KageDock.Views
             // Ensure the dock is expanded before showing the picker.
             if (!_expanded)
                 ExpandDock();
+
+            _contentHost.DeactivateActive();
 
             _addAppsView = new AddAppsWindow(_addAppsSession!);
 

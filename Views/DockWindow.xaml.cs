@@ -2,6 +2,9 @@ using KageDock.Models;
 using KageDock.Services;
 using KageDock.Coordinators;
 using KageDock.Controllers;
+using KageDock.Content;
+using KageDock.Contracts;
+using KageDock.Modules;
 using System;
 using System.Collections.Generic;
 using SystemIcons = System.Drawing.SystemIcons;
@@ -23,8 +26,6 @@ namespace KageDock.Views
     public partial class DockWindow : Window
     {
         private const double PanelWidth = 430;
-        private TimeSuiteView? _timeSuiteView;
-        private MusicIslandView? _musicIslandView;
         private DockConfig _config = new();
         private List<AppShortcut> _shortcuts = new();
         private bool _contextMenuOpen;
@@ -35,6 +36,7 @@ namespace KageDock.Views
         private Forms.NotifyIcon? _trayIcon;
         private Forms.ContextMenuStrip? _trayMenu;
         private DockScrollController? _dockScrollController;
+        private readonly DockContentHost _contentHost = new();
         private DateTime _lastDragAutoScrollTick = DateTime.MinValue;
         private System.Windows.Point _dragStartPoint;
         private DispatcherTimer? _dragAutoScrollTimer;
@@ -76,6 +78,31 @@ namespace KageDock.Views
         {
             InitializeComponent();
 
+            _contentHost.Register(
+                new DockModuleDescriptor(
+                    id: "timer",
+                    displayName: "Timer",
+                    factory: () => new TimeSuiteModule(),
+                    order: 2));
+
+            _contentHost.Register(
+                new DockModuleDescriptor(
+                    id: "music",
+                    displayName: "Music",
+                    factory: () =>
+                    {
+                        var module = new MusicModule();
+
+                        module.ReactionRequested +=
+                            _kageCoordinator!.ShowReaction;
+
+                        module.PlaybackStateChanged +=
+                            _kageCoordinator.OnMusicPlaybackStateChanged;
+
+                        return module;
+                    },
+                    order: 1));
+
             _dockContentAnimationController = new DockContentAnimationController(
                 NavIndicatorTransform,
                 AddAppsContent,
@@ -91,7 +118,7 @@ namespace KageDock.Views
 
             SourceInitialized += (_, _) => SetupTrayIcon();
         }
-       
+
         public sealed class SpringEase : EasingFunctionBase
         {
             public double Damping { get; set; } = 7.0;
@@ -115,7 +142,7 @@ namespace KageDock.Views
                 };
             }
         }
-        
+
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
@@ -166,7 +193,7 @@ namespace KageDock.Views
                     _fullscreenDetectionService,
                     () => _config);
             }
-            
+
             _kageCoordinator ??= new KageCoordinator(
                 () => _config,
                 () => _expanded,
@@ -187,23 +214,22 @@ namespace KageDock.Views
 
             _kageCoordinator.Initialize();
 
-            // Prewarm Music Island after the initial dock layout settles.
+            // Prewarm Music after the initial dock layout settles.
             Dispatcher.BeginInvoke(
                 System.Windows.Threading.DispatcherPriority.ContextIdle,
                 new Action(() =>
                 {
-                    if (!IsLoaded || _musicIslandView != null)
+                    if (!IsLoaded)
                         return;
 
-                    EnsureMusicIslandView();
+                    var musicModule = (MusicModule)_contentHost.Prepare("music");
 
-                    // Initialize Spotify monitoring even while Music Island is hidden.
-                    _ = _musicIslandView?.InitializeMediaAsync();
-
+                    // Initialize Spotify monitoring even while Music is hidden.
+                    _ = musicModule.InitializeMediaAsync();
                 }));
         }
 
-        
+
                 private static string GetIconCacheKey(AppShortcut shortcut)
         {
             return shortcut.TargetPath
@@ -211,7 +237,7 @@ namespace KageDock.Views
                 .Replace('/', '\\');
         }
 
-        
+
         public void ReloadConfiguration()
         {
             _config = ConfigService.LoadConfig();
@@ -312,16 +338,16 @@ namespace KageDock.Views
                 Visible = true
             };
             _trayIcon.DoubleClick += (_, _) => Dispatcher.Invoke(OpenSettings);
-        }  
-       
-                    
+        }
+
+
 
         private void NormalizeOrder()
         {
             _shortcutCoordinator?.NormalizeOrder();
         }
 
-        
+
         private static bool IsSectionMarker(AppShortcut shortcut) =>
             ShortcutCoordinator.IsSectionMarker(shortcut);
 
@@ -329,8 +355,8 @@ namespace KageDock.Views
             ShortcutCoordinator.NormalizeCategory(category);
 
 
-        
-                                                   
+
+
        private bool IsAnyAppContextMenuOpen()
         {
             return System.Windows.Application.Current.Windows
@@ -339,7 +365,7 @@ namespace KageDock.Views
                     window.IsVisible &&
                     window.GetType() == typeof(System.Windows.Controls.ContextMenu));
         }
-            
+
         private void RenameLauncherTitle()
         {
             var dialog = new Window
@@ -378,7 +404,7 @@ namespace KageDock.Views
             }
         }
 
-        
+
         private void SettingsButton_Click(object sender, RoutedEventArgs e) => OpenSettings();
 
         private void OpenSettings()
@@ -410,28 +436,12 @@ namespace KageDock.Views
         {
             OpenSettings();
         }
-        private void EnsureMusicIslandView()
-        {
-            if (_musicIslandView != null)
-                return;
 
-            _musicIslandView = new MusicIslandView();
-
-            _musicIslandView.ReactionRequested += _kageCoordinator!.ShowReaction;
-            _musicIslandView.PlaybackStateChanged += _kageCoordinator.OnMusicPlaybackStateChanged;
-
-            _musicIslandView.Measure(new System.Windows.Size(738, 295));
-            _musicIslandView.Arrange(new System.Windows.Rect(0, 0, 738, 295));
-        }
         protected override void OnClosed(EventArgs e)
         {
+            _contentHost.Dispose();
+
             // Shut down views.
-            _timeSuiteView?.Shutdown();
-            _timeSuiteView = null;
-
-            _musicIslandView?.Shutdown();
-            _musicIslandView = null;
-
             _dragAutoScrollTimer?.Stop();
             _dragAutoScrollTimer = null;
 
@@ -439,21 +449,6 @@ namespace KageDock.Views
 
             _dockScrollController?.Dispose();
             _dockScrollController = null;
-
-            // Complete any pending dock transition.
-            _morphCompletion?.TrySetResult(true);
-            _morphCompletion = null;
-
-            // Dispose Kage coordinator.
-            _kageCoordinator?.Dispose();
-            _kageCoordinator = null;
-
-            // Dispose visibility services.
-            _kageVisibilityController?.Dispose();
-            _kageVisibilityController = null;
-
-            _fullscreenDetectionService?.Dispose();
-            _fullscreenDetectionService = null;// Detach active rendering callbacks.
 
             // Complete any pending dock transition.
             _morphCompletion?.TrySetResult(true);
