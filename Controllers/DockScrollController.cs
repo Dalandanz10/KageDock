@@ -1,15 +1,15 @@
-
 using System;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Threading.Tasks;
 
 namespace KageDock.Controllers
 {
     public sealed class DockScrollController : IDisposable
     {
         private readonly ScrollViewer _scrollViewer;
-
+        private TaskCompletionSource<bool>? _scrollToTopCompletion;
         private double _targetScroll;
         private bool _scrollRenderingAttached;
         private DateTime _lastScrollFrame = DateTime.MinValue;
@@ -50,7 +50,44 @@ namespace KageDock.Controllers
                 _scrollRenderingAttached = true;
             }
         }
+        public Task ScrollToTopAsync()
+        {
+            return ScrollToOffsetAsync(0);
+        }
 
+        public Task ScrollToOffsetAsync(double targetOffset)
+        {
+            if (_disposed || !_scrollViewer.IsVisible)
+                return Task.CompletedTask;
+
+            double maxOffset = Math.Max(
+                0,
+                _scrollViewer.ExtentHeight - _scrollViewer.ViewportHeight);
+
+            _targetScroll = Math.Clamp(targetOffset, 0, maxOffset);
+
+            if (Math.Abs(_scrollViewer.VerticalOffset - _targetScroll) < 0.5)
+            {
+                if (_scrollRenderingAttached)
+                    StopSmoothScroll(true);
+
+                return Task.CompletedTask;
+            }
+
+            var completion = new TaskCompletionSource<bool>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+
+            _scrollToTopCompletion?.TrySetResult(false);
+            _scrollToTopCompletion = completion;
+
+            if (!_scrollRenderingAttached)
+            {
+                CompositionTarget.Rendering += SmoothScroll_Rendering;
+                _scrollRenderingAttached = true;
+            }
+
+            return completion.Task;
+        }
         private void SmoothScroll_Rendering(object? sender, EventArgs e)
         {
             if (_disposed)
@@ -78,13 +115,20 @@ namespace KageDock.Controllers
                     return;
                 }
 
+                double maxOffset = Math.Max(
+                    0,
+                    _scrollViewer.ExtentHeight - _scrollViewer.ViewportHeight);
+
+                // Keep the target within the current scroll range.
+                _targetScroll = Math.Clamp(_targetScroll, 0, maxOffset);
+
                 double current = _scrollViewer.VerticalOffset;
                 double difference = _targetScroll - current;
 
                 if (Math.Abs(difference) < 0.5)
                 {
                     _scrollViewer.ScrollToVerticalOffset(_targetScroll);
-                    StopSmoothScroll();
+                    StopSmoothScroll(true);
                     return;
                 }
 
@@ -98,7 +142,7 @@ namespace KageDock.Controllers
             _lastScrollFrame = now;
         }
 
-        private void StopSmoothScroll()
+        private void StopSmoothScroll(bool completed = false)
         {
             if (_scrollRenderingAttached)
             {
@@ -107,6 +151,9 @@ namespace KageDock.Controllers
             }
 
             _lastScrollFrame = DateTime.MinValue;
+
+            _scrollToTopCompletion?.TrySetResult(completed);
+            _scrollToTopCompletion = null;
         }
 
         public void Dispose()

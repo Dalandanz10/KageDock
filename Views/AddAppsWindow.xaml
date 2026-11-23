@@ -8,8 +8,8 @@
     <UserControl.Resources>
 
         <!-- Shared dark control styling -->
-      
-            
+
+
 <!-- Premium glass app tiles -->
 <Style x:Key="PremiumAppTileStyle" TargetType="{x:Type Border}">
     <Setter Property="Background" Value="#181D25"/>
@@ -177,6 +177,7 @@
                         <Setter Property="Background" Value="Transparent"/>
                         <Setter Property="Padding" Value="10,8"/>
                         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                        <Setter Property="VerticalContentAlignment" Value="Center"/>
                         <Setter Property="Template">
                             <Setter.Value>
                                 <ControlTemplate TargetType="{x:Type ComboBoxItem}">
@@ -345,51 +346,106 @@
             </Style.Triggers>
         </Style>
 
+
         <Style x:Key="DockScrollBarStyle" TargetType="{x:Type ScrollBar}">
-            <Setter Property="Width" Value="8"/>
+            <Setter Property="Width" Value="5"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type ScrollBar}">
-                        <Grid Background="Transparent" Width="8">
+                        <Grid Background="Transparent" Width="5">
                             <Track x:Name="PART_Track"
-                                   IsDirectionReversed="True"
-                                   Focusable="False">
+                                IsDirectionReversed="True"
+                                Focusable="False">
+
                                 <Track.DecreaseRepeatButton>
                                     <RepeatButton Command="ScrollBar.PageUpCommand"
-                                                  Opacity="0"
-                                                  Focusable="False"/>
+                                                Opacity="0"
+                                                Focusable="False"/>
                                 </Track.DecreaseRepeatButton>
+
                                 <Track.Thumb>
                                     <Thumb>
                                         <Thumb.Template>
                                             <ControlTemplate TargetType="{x:Type Thumb}">
                                                 <Border x:Name="ThumbBorder"
-                                                        Background="#596371"
-                                                        CornerRadius="4"
-                                                        Margin="1,2"/>
+                                                        Background="#55FFFFFF"
+                                                        BorderBrush="#35FFFFFF"
+                                                        BorderThickness="1"
+                                                        CornerRadius="3"
+                                                        Margin="0,2"/>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
                                                         <Setter TargetName="ThumbBorder"
                                                                 Property="Background"
-                                                                Value="#8491A1"/>
+                                                                Value="#99FFFFFF"/>
+                                                        <Setter TargetName="ThumbBorder"
+                                                                Property="BorderBrush"
+                                                                Value="#AAFFFFFF"/>
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
                                         </Thumb.Template>
                                     </Thumb>
                                 </Track.Thumb>
+
                                 <Track.IncreaseRepeatButton>
                                     <RepeatButton Command="ScrollBar.PageDownCommand"
-                                                  Opacity="0"
-                                                  Focusable="False"/>
+                                                Opacity="0"
+                                                Focusable="False"/>
                                 </Track.IncreaseRepeatButton>
+
                             </Track>
                         </Grid>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
+
+
+        <!-- Shared app tile template -->
+        <DataTemplate x:Key="AppTileTemplate">
+            <Border Margin="4"
+                    Height="104"
+                    CornerRadius="7"
+                    BorderThickness="1"
+                    Cursor="Hand"
+                    Tag="{Binding App}"
+                    MouseLeftButtonUp="AppTile_MouseLeftButtonUp">
+
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="#2D0C0F15"/>
+                        <Setter Property="BorderBrush" Value="#23DCE6F5"/>
+
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                <Setter Property="Background" Value="#41DCE6F5"/>
+                                <Setter Property="BorderBrush" Value="#64EBF2FF"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+
+                <StackPanel Margin="6"
+                            VerticalAlignment="Center">
+
+                    <Image Source="{Binding Icon}"
+                           Width="48"
+                           Height="48"
+                           Stretch="Uniform"
+                           HorizontalAlignment="Center"
+                           Margin="0,2,0,4"/>
+
+                    <TextBlock Text="{Binding DisplayName}"
+                               Foreground="White"
+                               FontSize="10.5"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap"
+                               MaxHeight="30"/>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
 
     </UserControl.Resources>
 
@@ -400,56 +456,149 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Search and category -->
+        <!-- Search and destination -->
         <Grid Grid.Row="0" Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="155"/>
-            <ColumnDefinition Width="Auto"/>
-        </Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="155"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
 
             <TextBox x:Name="SearchBox"
-                     Style="{StaticResource DockTextBoxStyle}"
-                     Tag="Search apps here"
-                     Margin="0,0,8,0"
-                     ToolTip="Search applications"
-                     TextChanged="SearchBox_TextChanged"/>
+                    Style="{StaticResource DockTextBoxStyle}"
+                    Tag="Search apps here"
+                    Margin="0,0,8,0"
+                    ToolTip="Search applications"
+                    TextChanged="SearchBox_TextChanged"/>
 
-            <ComboBox x:Name="CategoryBox"
-                      Grid.Column="1"
-                      Style="{StaticResource DockComboBoxStyle}"
-                      SelectionChanged="CategoryBox_SelectionChanged"/>
+            <Grid Grid.Column="1">
+                <ComboBox x:Name="CategoryBox"
+                        Style="{StaticResource DockComboBoxStyle}"
+                        SelectionChanged="CategoryBox_SelectionChanged">
 
-                      <Button Grid.Column="2"
-                                Content="+ Add App Manually"
-                                Click="AddAppManually_Click"
-                                Style="{StaticResource DockButtonStyle}"
-                                Margin="8,0,0,0"
-                                ToolTip="Browse for an EXE application or shortcut"/>
+                    <ComboBox.Resources>
+                        <Style TargetType="{x:Type ScrollBar}"
+                            BasedOn="{StaticResource DockScrollBarStyle}"/>
+                    </ComboBox.Resources>
+
+                </ComboBox>
+
+                <TextBox x:Name="NewSectionBox"
+                        Style="{StaticResource DockTextBoxStyle}"
+                        Tag="Enter section name"
+                        Padding="10,0,30,0"
+                        Visibility="Collapsed"
+                        TextChanged="NewSectionBox_TextChanged"/>
+
+                <Button x:Name="CancelNewSectionButton"
+                        Content="×"
+                        Width="24"
+                        Height="24"
+                        Padding="0"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center"
+                        Margin="0,0,4,0"
+                        Background="#26FFFFFF"
+                        BorderBrush="#55FFFFFF"
+                        BorderThickness="1"
+                        Foreground="#DCE4EF"
+                        FontSize="14"
+                        Cursor="Hand"
+                        FocusVisualStyle="{x:Null}"
+                        Visibility="Collapsed"
+                        Click="CancelNewSectionButton_Click">
+                    <Button.Template>
+                        <ControlTemplate TargetType="{x:Type Button}">
+                            <Border Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="7">
+                                <ContentPresenter HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"/>
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+            </Grid>
+
+            <Button Grid.Column="2"
+                    Content="+ Add App Manually"
+                    Click="AddAppManually_Click"
+                    Style="{StaticResource DockButtonStyle}"
+                    Margin="8,0,0,0"
+                    ToolTip="Browse for an EXE application or shortcut"/>
         </Grid>
 
         <!-- Apps list and loading overlay -->
         <Grid Grid.Row="1">
 
-            <ScrollViewer x:Name="AppsScrollViewer"
-                        PreviewMouseWheel="AppsScrollViewer_PreviewMouseWheel"
-                        VerticalScrollBarVisibility="Auto"
-                        HorizontalScrollBarVisibility="Disabled">
 
-                <ScrollViewer.Resources>
-                    <Style TargetType="{x:Type ScrollBar}"
-                        BasedOn="{StaticResource DockScrollBarStyle}"/>
-                </ScrollViewer.Resources>
+        <ListBox x:Name="AppsItems"
+                Background="Transparent"
+                BorderThickness="0"
+                Padding="0"
+                ScrollViewer.VerticalScrollBarVisibility="Auto"
+                ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                ScrollViewer.CanContentScroll="True"
+                VirtualizingPanel.ScrollUnit="Pixel"
+                VirtualizingPanel.IsVirtualizing="True"
+                VirtualizingPanel.VirtualizationMode="Recycling"
+                VirtualizingPanel.CacheLength="0,0"
+                VirtualizingPanel.CacheLengthUnit="Pixel"
+                HorizontalContentAlignment="Stretch">
 
-                <ItemsControl x:Name="AppsItems">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <UniformGrid Columns="6"/>
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                </ItemsControl>
+            <ListBox.Resources>
+                <Style TargetType="{x:Type ScrollBar}"
+                    BasedOn="{StaticResource DockScrollBarStyle}"/>
+            </ListBox.Resources>
 
-            </ScrollViewer>
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="{x:Type ListBoxItem}">
+                    <Setter Property="Padding" Value="0"/>
+                    <Setter Property="Margin" Value="0"/>
+                    <Setter Property="BorderThickness" Value="0"/>
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                    <Setter Property="Focusable" Value="False"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="{x:Type ListBoxItem}">
+                                <ContentPresenter
+                                    HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                    VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </ListBox.ItemContainerStyle>
+
+            <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <VirtualizingStackPanel/>
+                </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+
+
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <UniformGrid Columns="6">
+                        <ContentPresenter Content="{Binding [0]}"
+                                          ContentTemplate="{StaticResource AppTileTemplate}"/>
+                        <ContentPresenter Content="{Binding [1]}"
+                                          ContentTemplate="{StaticResource AppTileTemplate}"/>
+                        <ContentPresenter Content="{Binding [2]}"
+                                          ContentTemplate="{StaticResource AppTileTemplate}"/>
+                        <ContentPresenter Content="{Binding [3]}"
+                                          ContentTemplate="{StaticResource AppTileTemplate}"/>
+                        <ContentPresenter Content="{Binding [4]}"
+                                          ContentTemplate="{StaticResource AppTileTemplate}"/>
+                        <ContentPresenter Content="{Binding [5]}"
+                                          ContentTemplate="{StaticResource AppTileTemplate}"/>
+                    </UniformGrid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+
+        </ListBox>
 
             <TextBlock x:Name="LoadingText"
                     Text="Finding your apps…"
@@ -458,10 +607,8 @@
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     IsHitTestVisible="False"/>
-
         </Grid>
 
-        
             <!-- Footer -->
             <Grid Grid.Row="2" Margin="0,8,0,0">
                 <Grid.ColumnDefinitions>
@@ -510,10 +657,12 @@
                     </StackPanel>
                 </Border>
 
-                <Button Grid.Column="2"
+                <Button x:Name="AddSelectedButton"
+                        Grid.Column="2"
                         Content="Add Selected"
                         Click="AddSelected_Click"
-                        Style="{StaticResource AddSelectedButtonStyle}"/>
+                        Style="{StaticResource AddSelectedButtonStyle}"
+                        IsEnabled="False"/>
             </Grid>
     </Grid>
 </UserControl>

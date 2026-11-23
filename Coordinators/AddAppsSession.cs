@@ -20,10 +20,19 @@ namespace KageDock.Coordinators
         private readonly HashSet<string> _selectedPaths =
             new(StringComparer.OrdinalIgnoreCase);
 
-        private readonly List<AppShortcut> _existingShortcuts;
+        private readonly ShortcutStore _shortcutStore;
 
         public IReadOnlyList<AppShortcut> ExistingShortcuts =>
-            _existingShortcuts;
+            _shortcutStore.Shortcuts;
+
+        public IReadOnlyList<string> GetSectionNames()
+        {
+            return _shortcutStore.Shortcuts
+                .Select(s => ShortcutCoordinator.NormalizeCategory(s.Category))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
 
         public IReadOnlyList<AppShortcut> DiscoveredApps =>
             _discoveredApps;
@@ -35,10 +44,10 @@ namespace KageDock.Coordinators
         public bool IsDiscoveryComplete { get; private set; }
 
         public AddAppsSession(
-            List<AppShortcut> existingShortcuts,
+            ShortcutStore shortcutStore,
             IconService iconService)
         {
-            _existingShortcuts = existingShortcuts;
+            _shortcutStore = shortcutStore;
             _iconService = iconService;
         }
 
@@ -114,7 +123,7 @@ namespace KageDock.Coordinators
                                 TargetPath = path,
                                 Category = "Pinned",
                                 OrderIndex =
-                                    _existingShortcuts.Count +
+                                    _shortcutStore.Shortcuts.Count +
                                     _discoveredApps.Count
                             });
                         }
@@ -185,14 +194,14 @@ namespace KageDock.Coordinators
                 Arguments = app.Arguments,
                 Category = "Pinned",
                 OrderIndex =
-                    _existingShortcuts.Count +
+                    _shortcutStore.Shortcuts.Count +
                     _discoveredApps.Count
             });
         }
 
         public bool IsAlreadyAdded(string targetPath)
         {
-            return _existingShortcuts.Any(existing =>
+            return _shortcutStore.Shortcuts.Any(existing =>
                 string.Equals(
                     existing.TargetPath,
                     targetPath,
@@ -229,7 +238,7 @@ namespace KageDock.Coordinators
                 TargetPath = path,
                 Category = category,
                 OrderIndex =
-                    _existingShortcuts.Count +
+                    _shortcutStore.Shortcuts.Count +
                     _discoveredApps.Count
             };
 

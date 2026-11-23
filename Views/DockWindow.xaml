@@ -260,7 +260,7 @@
               VerticalAlignment="Top"
               ClipToBounds="True"
               Panel.ZIndex="1">
-            
+
         <!-- Expanded dock surface: follows DockRevealHost size, never hit-testable -->
         <Grid x:Name="DockSurface"
             IsHitTestVisible="False"
@@ -309,7 +309,7 @@
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        
+
                     <!-- Header -->
                     <Grid Grid.Row="0"
                         Margin="18,10,12,8">
@@ -453,94 +453,6 @@
 
 
                         <Grid x:Name="ContentHost" Grid.Row="1">
-
-                        <!-- Scrollable app sections -->
-                        <ScrollViewer x:Name="AppScrollViewer"
-                                      Margin="12,6,12,6"
-                                      VerticalScrollBarVisibility="Visible"
-                                      HorizontalScrollBarVisibility="Disabled"
-                                      PanningMode="VerticalOnly"
-                                      CanContentScroll="False">
-
-                            <ScrollViewer.Resources>
-                                <Style TargetType="{x:Type ScrollBar}">
-                                    <Setter Property="Width" Value="4"/>
-                                    <Setter Property="MinWidth" Value="4"/>
-                                    <Setter Property="Background" Value="Transparent"/>
-
-                                    <Setter Property="Template">
-                                        <Setter.Value>
-                                            <ControlTemplate TargetType="{x:Type ScrollBar}">
-                                                <Grid Background="Transparent">
-                                                    <Track x:Name="PART_Track"
-                                                           IsDirectionReversed="True"
-                                                           Focusable="False">
-
-                                                        <Track.Thumb>
-                                                            <Thumb>
-                                                                <Thumb.Template>
-                                                                    <ControlTemplate TargetType="{x:Type Thumb}">
-                                                                        <Border x:Name="ThumbBorder"
-                                                                                Background="#707784"
-                                                                                CornerRadius="2"
-                                                                                Margin="0,1"
-                                                                                Opacity="0.65"/>
-
-                                                                        <ControlTemplate.Triggers>
-                                                                            <Trigger Property="IsMouseOver"
-                                                                                     Value="True">
-                                                                                <Setter TargetName="ThumbBorder"
-                                                                                        Property="Opacity"
-                                                                                        Value="0.95"/>
-                                                                                <Setter TargetName="ThumbBorder"
-                                                                                        Property="Background"
-                                                                                        Value="#A0A6B0"/>
-                                                                            </Trigger>
-
-                                                                            <Trigger Property="IsDragging"
-                                                                                     Value="True">
-                                                                                <Setter TargetName="ThumbBorder"
-                                                                                        Property="Opacity"
-                                                                                        Value="1"/>
-                                                                                <Setter TargetName="ThumbBorder"
-                                                                                        Property="Background"
-                                                                                        Value="#C0C4CC"/>
-                                                                            </Trigger>
-                                                                        </ControlTemplate.Triggers>
-                                                                    </ControlTemplate>
-                                                                </Thumb.Template>
-                                                            </Thumb>
-                                                        </Track.Thumb>
-                                                    </Track>
-                                                </Grid>
-                                            </ControlTemplate>
-                                        </Setter.Value>
-                                    </Setter>
-
-                                    <Style.Triggers>
-                                        <Trigger Property="Orientation"
-                                                 Value="Horizontal">
-                                            <Setter Property="Visibility"
-                                                    Value="Collapsed"/>
-                                        </Trigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </ScrollViewer.Resources>
-
-                            <StackPanel x:Name="SectionsPanel"
-                                        Orientation="Vertical"
-                                        HorizontalAlignment="Stretch"
-                                        AllowDrop="True"/>
-                        </ScrollViewer>
-
-                        
-                    <!-- Floating new-section drop zone host -->
-                    <Grid x:Name="NewSectionDropZoneHost"
-                        Margin="12,6,12,28"
-                        HorizontalAlignment="Stretch"
-                        VerticalAlignment="Stretch"
-                        Panel.ZIndex="20"
-                        ClipToBounds="False"/>
 
                     <!-- Add Apps view host -->
                     <Grid x:Name="AddAppsContent"

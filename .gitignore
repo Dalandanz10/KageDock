@@ -17,3 +17,5 @@ shortcuts_backup.json
 
 # Generated distribution output
 KageDock-Distribution/Publish/
+KageDock-Distribution/Installer/
+KageDock-Distribution/Setup/

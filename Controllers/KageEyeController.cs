@@ -189,6 +189,7 @@ namespace KageDock.Controllers
             ScheduleNextGaze();
         }
 
+
         public void Stop()
         {
             CancelSleepPreparation(animate: false);
@@ -197,12 +198,18 @@ namespace KageDock.Controllers
             _expressionOverride = null;
             ResetExpression();
 
+            // Cancel any in-progress wake sequence.
+            _isWaking = false;
+
+            _headShake.BeginAnimation(
+                TranslateTransform.XProperty, null);
+            _headShake.X = 0.0;
+
             if (!_isRunning)
                 return;
 
             _isRunning = false;
             _blinkTimer.Stop();
-
             _gazeTimer.Stop();
 
             ResetGaze();
@@ -214,6 +221,7 @@ namespace KageDock.Controllers
             // (closed if still sleeping, open otherwise).
             ApplySleep(animate: false);
         }
+
 
         // ------------------------------------------------------------------
         // Sleep mode

@@ -10,49 +10,125 @@ namespace KageDock.Coordinators
 {
     public sealed class ShortcutCoordinator
     {
-        private readonly List<AppShortcut> _shortcuts;
+        private readonly ShortcutStore _shortcutStore;
 
-        public ShortcutCoordinator(List<AppShortcut> shortcuts)
+        private List<AppShortcut> Shortcuts =>
+            _shortcutStore.Shortcuts;
+
+        public ShortcutCoordinator(ShortcutStore shortcutStore)
         {
-            _shortcuts = shortcuts;
+            _shortcutStore = shortcutStore;
         }
 
         public void Save()
         {
             RemoveEmptySections();
+            NormalizeSectionSlots();
             NormalizeOrder();
 
-            ConfigService.SaveShortcuts(_shortcuts);
+            _shortcutStore.Save();
         }
+
         public void RenameSection(string oldName, string newName)
         {
-            foreach (var shortcut in _shortcuts.Where(s =>
+            oldName = NormalizeCategory(oldName);
+            newName = NormalizeCategory(newName);
+
+            // Ignore unchanged names.
+            if (oldName.Equals(
+                newName,
+                StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            // Never merge two existing sections.
+            if (Shortcuts.Any(s =>
                 NormalizeCategory(s.Category).Equals(
-                    oldName, StringComparison.OrdinalIgnoreCase)))
+                    newName,
+                    StringComparison.OrdinalIgnoreCase)))
+            {
+                return;
+            }
+
+            foreach (var shortcut in Shortcuts.Where(s =>
+                NormalizeCategory(s.Category).Equals(
+                    oldName,
+                    StringComparison.OrdinalIgnoreCase)))
             {
                 shortcut.Category = newName;
             }
+        }
 
-            if (_shortcuts.All(s =>
-                    !NormalizeCategory(s.Category).Equals(
-                        newName, StringComparison.OrdinalIgnoreCase)) &&
-                !_shortcuts.Any(s =>
+        public bool MoveSection(
+            string draggedCategory,
+            string targetCategory,
+            bool insertAfter)
+        {
+            draggedCategory = NormalizeCategory(draggedCategory);
+            targetCategory = NormalizeCategory(targetCategory);
+
+            if (draggedCategory.Equals(
+                targetCategory,
+                StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            // Get the current section order.
+            var categories = Shortcuts
+                .Select(s => NormalizeCategory(s.Category))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            int draggedIndex = categories.FindIndex(c =>
+                c.Equals(draggedCategory, StringComparison.OrdinalIgnoreCase));
+
+            int targetIndex = categories.FindIndex(c =>
+                c.Equals(targetCategory, StringComparison.OrdinalIgnoreCase));
+
+            if (draggedIndex < 0 || targetIndex < 0)
+                return false;
+
+            // Move the dragged section in the category order.
+            string movedCategory = categories[draggedIndex];
+            categories.RemoveAt(draggedIndex);
+
+            targetIndex = categories.FindIndex(c =>
+                c.Equals(targetCategory, StringComparison.OrdinalIgnoreCase));
+
+            int insertIndex = targetIndex + (insertAfter ? 1 : 0);
+            categories.Insert(insertIndex, movedCategory);
+
+            // Rebuild the shortcut list, keeping each section's contents together.
+            var reorderedShortcuts = new List<AppShortcut>();
+
+            foreach (string category in categories)
+            {
+                reorderedShortcuts.AddRange(Shortcuts.Where(s =>
                     IsSectionMarker(s) &&
                     NormalizeCategory(s.Category).Equals(
-                        newName, StringComparison.OrdinalIgnoreCase)))
-            {
-                _shortcuts.Add(new AppShortcut
-                {
-                    Name = "__KAGEDOCK_SECTION__",
-                    Category = newName,
-                    OrderIndex = _shortcuts.Count
-                });
+                        category,
+                        StringComparison.OrdinalIgnoreCase)));
+
+                reorderedShortcuts.AddRange(Shortcuts.Where(s =>
+                    !IsSectionMarker(s) &&
+                    NormalizeCategory(s.Category).Equals(
+                        category,
+                        StringComparison.OrdinalIgnoreCase)));
             }
+
+            Shortcuts.Clear();
+            Shortcuts.AddRange(reorderedShortcuts);
+
+            NormalizeOrder();
+
+            return true;
         }
 
         private string CreateUniqueCategoryName()
         {
-            var categories = _shortcuts
+            var categories = Shortcuts
                 .Where(s => !IsSectionMarker(s))
                 .Select(s => NormalizeCategory(s.Category))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -73,21 +149,21 @@ namespace KageDock.Coordinators
         private void RemoveEmptySections()
         {
             var categoriesWithApps = new HashSet<string>(
-                _shortcuts
+                Shortcuts
                     .Where(s => !IsSectionMarker(s))
                     .Select(s => NormalizeCategory(s.Category)),
                 StringComparer.OrdinalIgnoreCase);
 
-            _shortcuts.RemoveAll(s =>
+            Shortcuts.RemoveAll(s =>
                 IsSectionMarker(s) &&
                 !categoriesWithApps.Contains(NormalizeCategory(s.Category)));
         }
 
         public void NormalizeOrder()
         {
-            for (int i = 0; i < _shortcuts.Count; i++)
+            for (int i = 0; i < Shortcuts.Count; i++)
             {
-                _shortcuts[i].OrderIndex = i;
+                Shortcuts[i].OrderIndex = i;
             }
         }
 
@@ -96,47 +172,45 @@ namespace KageDock.Coordinators
             string category,
             int slot)
         {
-            _shortcuts.Remove(shortcut);
+            Shortcuts.Remove(shortcut);
 
             shortcut.Category = NormalizeCategory(category);
             shortcut.SlotIndex = slot;
 
-            _shortcuts.Add(shortcut);
+            Shortcuts.Add(shortcut);
 
             NormalizeOrder();
         }
 
 
+
+
         public void NormalizeSectionSlots()
         {
-            var categories = _shortcuts
+            var categories = Shortcuts
                 .Where(s => !IsSectionMarker(s))
                 .Select(s => NormalizeCategory(s.Category))
-                .Distinct(StringComparer.OrdinalIgnoreCase);
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
             foreach (var category in categories)
             {
-                var sectionApps = _shortcuts
+                var sectionApps = Shortcuts
                     .Where(s =>
                         !IsSectionMarker(s) &&
                         NormalizeCategory(s.Category).Equals(
                             category,
                             StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(s => s.OrderIndex)
                     .ToList();
 
                 var usedSlots = new HashSet<int>();
-
-                foreach (var app in sectionApps)
-                {
-                    if (app.SlotIndex >= 0)
-                        usedSlots.Add(app.SlotIndex);
-                }
-
                 int nextSlot = 0;
 
+                // First repair duplicate or invalid slots.
                 foreach (var app in sectionApps)
                 {
-                    if (app.SlotIndex >= 0)
+                    if (app.SlotIndex >= 0 && usedSlots.Add(app.SlotIndex))
                         continue;
 
                     while (usedSlots.Contains(nextSlot))
@@ -144,14 +218,38 @@ namespace KageDock.Coordinators
 
                     app.SlotIndex = nextSlot;
                     usedSlots.Add(nextSlot);
+                    nextSlot++;
+                }
+
+                // Identify rows that actually contain apps.
+                var occupiedRows = sectionApps
+                    .Select(app => app.SlotIndex / 4)
+                    .Distinct()
+                    .OrderBy(row => row)
+                    .ToList();
+
+                // Map occupied rows to consecutive row numbers.
+                var compactedRows = occupiedRows
+                    .Select((oldRow, newRow) => new { oldRow, newRow })
+                    .ToDictionary(x => x.oldRow, x => x.newRow);
+
+                // Move apps upward while preserving their columns.
+                foreach (var app in sectionApps)
+                {
+                    int oldRow = app.SlotIndex / 4;
+                    int column = app.SlotIndex % 4;
+
+                    app.SlotIndex = compactedRows[oldRow] * 4 + column;
                 }
             }
         }
 
 
+
+
         public void MoveToNewSection(AppShortcut shortcut)
         {
-            _shortcuts.Remove(shortcut);
+            Shortcuts.Remove(shortcut);
 
             string newCategory = CreateUniqueCategoryName();
 
@@ -169,8 +267,8 @@ namespace KageDock.Coordinators
             shortcut.SlotIndex = 0;
             shortcut.OrderIndex = 0;
 
-            _shortcuts.Add(marker);
-            _shortcuts.Add(shortcut);
+            Shortcuts.Add(marker);
+            Shortcuts.Add(shortcut);
 
             NormalizeOrder();
         }
@@ -185,49 +283,113 @@ namespace KageDock.Coordinators
         public static string NormalizeCategory(string? category) =>
             string.IsNullOrWhiteSpace(category) ? "Pinned" : category.Trim();
 
-        
+
         public int AddApps(IEnumerable<AppShortcut> apps, string category)
+{
+    int addedCount = 0;
+
+    foreach (var app in apps)
+    {
+        if (Shortcuts.Any(existing =>
+            string.Equals(
+                existing.TargetPath,
+                app.TargetPath,
+                StringComparison.OrdinalIgnoreCase)))
         {
-            int addedCount = 0;
+            continue;
+        }
 
-            foreach (var app in apps)
+        app.Category = category;
+
+        var categoryApps = Shortcuts
+            .Where(a => !IsSectionMarker(a) &&
+                NormalizeCategory(a.Category).Equals(
+                    NormalizeCategory(app.Category),
+                    StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        var occupiedSlots = categoryApps
+            .Select(a => a.SlotIndex >= 0 ? a.SlotIndex : a.OrderIndex)
+            .ToHashSet();
+
+        int nextSlot = 0;
+
+        while (occupiedSlots.Contains(nextSlot))
+            nextSlot++;
+
+        app.SlotIndex = nextSlot;
+        app.OrderIndex = Shortcuts.Count;
+
+        Shortcuts.Add(app);
+        addedCount++;
+    }
+
+    return addedCount;
+}
+
+        public int AddAppsToNewSection(
+            IEnumerable<AppShortcut> apps,
+            string sectionName)
+        {
+            if (string.IsNullOrWhiteSpace(sectionName))
+                throw new ArgumentException(
+                    "Section name cannot be empty.",
+                    nameof(sectionName));
+
+            string category = NormalizeCategory(sectionName);
+
+            if (Shortcuts.Any(s =>
+                NormalizeCategory(s.Category).Equals(
+                    category,
+                    StringComparison.OrdinalIgnoreCase)))
             {
-                if (_shortcuts.Any(existing =>
-                    string.Equals(
-                        existing.TargetPath,
-                        app.TargetPath,
-                        StringComparison.OrdinalIgnoreCase)))
-                {
-                    continue;
-                }
-
-                app.Category = category;
-
-                var categoryApps = _shortcuts
-                    .Where(a => !IsSectionMarker(a) &&
-                        NormalizeCategory(a.Category).Equals(
-                            NormalizeCategory(app.Category),
-                            StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-
-                var occupiedSlots = categoryApps
-                    .Select(a => a.SlotIndex >= 0 ? a.SlotIndex : a.OrderIndex)
-                    .ToHashSet();
-
-                int nextSlot = 0;
-
-                while (occupiedSlots.Contains(nextSlot))
-                    nextSlot++;
-
-                app.SlotIndex = nextSlot;
-                app.OrderIndex = _shortcuts.Count;
-
-                _shortcuts.Add(app);
-                addedCount++;
+                throw new InvalidOperationException(
+                    $"A section named '{category}' already exists.");
             }
+
+            var marker = new AppShortcut
+            {
+                Name = "__KAGEDOCK_SECTION__",
+                DisplayName = "",
+                TargetPath = "",
+                Category = category,
+                SlotIndex = -1,
+                OrderIndex = Shortcuts.Count
+            };
+
+            Shortcuts.Add(marker);
+
+            int addedCount = AddApps(apps, category);
+
+            if (addedCount == 0)
+            {
+                Shortcuts.Remove(marker);
+                return 0;
+            }
+
+            NormalizeOrder();
 
             return addedCount;
         }
+
+
+        public List<AppShortcut> GetNewlyAddedApps(
+            IEnumerable<AppShortcut> selectedApps)
+        {
+            var addedApps = new List<AppShortcut>();
+
+            foreach (var app in selectedApps)
+            {
+                var storedApp = Shortcuts.FirstOrDefault(existing =>
+                    ReferenceEquals(existing, app));
+
+                if (storedApp != null && !IsSectionMarker(storedApp))
+                    addedApps.Add(storedApp);
+            }
+
+            return addedApps;
+        }
+
 
         public void MoveToInsertionSlot(
             AppShortcut dragged,
@@ -235,7 +397,7 @@ namespace KageDock.Coordinators
             int insertSlot,
             IReadOnlyList<AppShortcut> destinationApps)
         {
-            _shortcuts.Remove(dragged);
+            Shortcuts.Remove(dragged);
 
             int finalSlot = Math.Max(0, insertSlot);
 
@@ -259,14 +421,11 @@ namespace KageDock.Coordinators
 
             if (targetOccupied && leftGap >= 0)
             {
-                // Use the left gap: shift intervening apps one slot left.
-                for (int slot = leftGap + 1; slot < finalSlot; slot++)
+                for (int slot = leftGap + 1; slot <= finalSlot; slot++)
                 {
                     if (appsBySlot.TryGetValue(slot, out var app))
                         app.SlotIndex = slot - 1;
                 }
-
-                finalSlot--;
             }
             else if (targetOccupied)
             {
@@ -284,10 +443,10 @@ namespace KageDock.Coordinators
             dragged.SlotIndex = finalSlot;
             dragged.OrderIndex = finalSlot;
 
-            _shortcuts.Add(dragged);
+            Shortcuts.Add(dragged);
 
             // Preserve section order and sort apps by their slots.
-            var categoryOrder = _shortcuts
+            var categoryOrder = Shortcuts
                 .Select(a => NormalizeCategory(a.Category))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -296,12 +455,12 @@ namespace KageDock.Coordinators
 
             foreach (string category in categoryOrder)
             {
-                reorderedShortcuts.AddRange(_shortcuts.Where(a =>
+                reorderedShortcuts.AddRange(Shortcuts.Where(a =>
                     IsSectionMarker(a) &&
                     NormalizeCategory(a.Category).Equals(
                         category, StringComparison.OrdinalIgnoreCase)));
 
-                reorderedShortcuts.AddRange(_shortcuts
+                reorderedShortcuts.AddRange(Shortcuts
                     .Where(a =>
                         !IsSectionMarker(a) &&
                         NormalizeCategory(a.Category).Equals(
@@ -311,15 +470,15 @@ namespace KageDock.Coordinators
                         : a.OrderIndex));
             }
 
-            _shortcuts.Clear();
-            _shortcuts.AddRange(reorderedShortcuts);
+            Shortcuts.Clear();
+            Shortcuts.AddRange(reorderedShortcuts);
 
             NormalizeOrder();
         }
 
         public bool RemoveApp(AppShortcut shortcut)
         {
-            return _shortcuts.Remove(shortcut);
+            return Shortcuts.Remove(shortcut);
         }
 
         public void RenameApp(AppShortcut shortcut, string displayName)
@@ -336,7 +495,7 @@ namespace KageDock.Coordinators
                 if (!File.Exists(path))
                     continue;
 
-                if (_shortcuts.Any(a =>
+                if (Shortcuts.Any(a =>
                     string.Equals(
                         a.TargetPath,
                         path,
@@ -347,14 +506,14 @@ namespace KageDock.Coordinators
 
                 string name = Path.GetFileNameWithoutExtension(path);
 
-                _shortcuts.Add(new AppShortcut
+                Shortcuts.Add(new AppShortcut
                 {
                     Name = name,
                     DisplayName = name,
                     TargetPath = path,
                     Category = category,
                     SlotIndex = -1,
-                    OrderIndex = _shortcuts.Count
+                    OrderIndex = Shortcuts.Count
                 });
 
                 addedCount++;

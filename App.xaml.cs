@@ -1,10 +1,10 @@
-﻿
-using System;
+﻿using System;
 using System.IO;
 using System.IO.Pipes;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using KageDock.Services;
 using KageDock.Views;
 
 namespace KageDock
@@ -13,7 +13,7 @@ namespace KageDock
     {
         private const string MutexName = @"Local\KageDock_SingleInstance";
         private const string PipeName = "KageDock_SettingsPipe";
-
+        private SpotifyMediaSessionService? _spotifyMediaSessionService;
         private Mutex? _instanceMutex;
         private CancellationTokenSource? _ipcCancellation;
         private DockWindow? _dockWindow;
@@ -73,7 +73,10 @@ namespace KageDock
 
             _ipcCancellation = new CancellationTokenSource();
 
-            _dockWindow = new DockWindow();
+            _spotifyMediaSessionService = new SpotifyMediaSessionService(
+                Dispatcher);
+
+            _dockWindow = new DockWindow(_spotifyMediaSessionService);
             MainWindow = _dockWindow;
             _dockWindow.Show();
 
@@ -164,6 +167,9 @@ namespace KageDock
 
             _instanceMutex?.Dispose();
             _instanceMutex = null;
+
+            _spotifyMediaSessionService?.Dispose();
+            _spotifyMediaSessionService = null;
 
             base.OnExit(e);
         }

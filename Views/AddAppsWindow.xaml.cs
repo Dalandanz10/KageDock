@@ -1,9 +1,9 @@
-
 using KageDock.Models;
 using KageDock.Services;
 using KageDock.Coordinators;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -13,24 +13,68 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using Microsoft.Win32;
+using KageDock.Controllers;
 
 namespace KageDock.Views
 {
     public partial class AddAppsWindow : System.Windows.Controls.UserControl
     {
         private readonly AddAppsSession _session;
-        private bool _scrollRenderingAttached;
-        private double _targetScroll;
-        private DateTime _lastScrollFrame = DateTime.MinValue;
+        private bool _isRefreshingDestination;
+        private int _visibleAppCount;
+
+        private sealed class AppTileItem : INotifyPropertyChanged
+        {
+            public AppShortcut App { get; }
+            public object? Icon => App.CachedIcon;
+
+            public string DisplayName =>
+                string.IsNullOrWhiteSpace(App.DisplayName)
+                    ? App.Name
+                    : App.DisplayName;
+
+            private bool _isSelected;
+
+            public bool IsSelected
+            {
+                get => _isSelected;
+                set
+                {
+                    if (_isSelected == value)
+                        return;
+
+                    _isSelected = value;
+                    PropertyChanged?.Invoke(
+                        this,
+                        new PropertyChangedEventArgs(nameof(IsSelected)));
+                }
+            }
+
+            public event PropertyChangedEventHandler? PropertyChanged;
+
+            public AppTileItem(AppShortcut app, bool isSelected)
+            {
+                App = app;
+                _isSelected = isSelected;
+            }
+        }
+            private DockScrollController? _appsScrollController;
 
         public List<AppShortcut> SelectedApps { get; } = new();
         public event Action? BackRequested;
 
         public event Action? Finished;
-        
+
+
+        private const string CreateNewSectionLabel = "＋ Create New Section...";
+
+        public bool IsCreatingNewSection =>
+            NewSectionBox.Visibility == Visibility.Visible;
 
         public string SelectedCategory =>
-            CategoryBox.SelectedItem as string ?? "Pinned";
+            IsCreatingNewSection
+                ? NewSectionBox.Text.Trim()
+                : CategoryBox.SelectedItem as string ?? "Recently Added";
 
         public AddAppsWindow(AddAppsSession session)
         {
@@ -38,19 +82,30 @@ namespace KageDock.Views
 
             _session = session;
 
-            Unloaded += (_, _) => StopAppsSmoothScroll();
-
-            CategoryBox.ItemsSource = new[]
+            Unloaded += (_, _) =>
             {
-                "Pinned", "Games", "Tools", "Work", "Other"
+                _appsScrollController?.Dispose();
+                _appsScrollController = null;
             };
 
-            CategoryBox.SelectedIndex = 0;
+            RefreshDestinationSections();
 
-            Loaded += async (_, _) => await LoadAppsAsync();
+            UpdateAddSelectedButton();
+
+            Loaded += async (_, _) =>
+            {
+                AppsItems.ApplyTemplate();
+
+                var scrollViewer = FindVisualChild<ScrollViewer>(AppsItems);
+
+                if (scrollViewer != null && _appsScrollController == null)
+                    _appsScrollController = new DockScrollController(scrollViewer);
+
+                await LoadAppsAsync();
+            };
         }
 
-        
+
         private async void AddAppManually_Click(
             object sender,
             RoutedEventArgs e)
@@ -90,90 +145,24 @@ namespace KageDock.Views
             SelectionCount.Text = $"{_session.SelectedCount} selected";
         }
 
-        private void AppsScrollViewer_PreviewMouseWheel(
-        object sender,
-            System.Windows.Input.MouseWheelEventArgs e)
+
+        private static T? FindVisualChild<T>(DependencyObject parent)
+            where T : DependencyObject
         {
-            e.Handled = true;
-
-            double baseOffset = _scrollRenderingAttached
-                ? _targetScroll
-                : AppsScrollViewer.VerticalOffset;
-
-            double maxOffset = Math.Max(
-                0,
-                AppsScrollViewer.ExtentHeight - AppsScrollViewer.ViewportHeight);
-
-            _targetScroll = Math.Clamp(
-                baseOffset - e.Delta * 0.65,
-                0,
-                maxOffset);
-
-            if (!_scrollRenderingAttached)
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
             {
-                System.Windows.Media.CompositionTarget.Rendering
-                    += SmoothAppsScroll_Rendering;
+                var child = VisualTreeHelper.GetChild(parent, i);
 
-                _scrollRenderingAttached = true;
-            }
-        }
+                if (child is T result)
+                    return result;
 
-        private void SmoothAppsScroll_Rendering(object? sender, EventArgs e)
-        {
-            if (!IsLoaded || !AppsScrollViewer.IsVisible)
-            {
-                StopAppsSmoothScroll();
-                return;
+                var descendant = FindVisualChild<T>(child);
+
+                if (descendant != null)
+                    return descendant;
             }
 
-            var now = DateTime.UtcNow;
-
-            if (_lastScrollFrame != DateTime.MinValue)
-            {
-                double elapsed = (now - _lastScrollFrame).TotalSeconds;
-
-                if (elapsed > 0.05)
-                {
-                    _lastScrollFrame = now;
-                    return;
-                }
-
-                double maxOffset = Math.Max(
-                    0,
-                    AppsScrollViewer.ExtentHeight - AppsScrollViewer.ViewportHeight);
-
-                _targetScroll = Math.Clamp(_targetScroll, 0, maxOffset);
-
-                double current = AppsScrollViewer.VerticalOffset;
-                double difference = _targetScroll - current;
-
-                if (Math.Abs(difference) < 0.5)
-                {
-                    AppsScrollViewer.ScrollToVerticalOffset(_targetScroll);
-                    StopAppsSmoothScroll();
-                    return;
-                }
-
-                double blend = 1.0 - Math.Exp(-14.0 * elapsed);
-
-                AppsScrollViewer.ScrollToVerticalOffset(
-                    current + difference * blend);
-            }
-
-            _lastScrollFrame = now;
-        }
-
-        private void StopAppsSmoothScroll()
-        {
-            if (_scrollRenderingAttached)
-            {
-                System.Windows.Media.CompositionTarget.Rendering
-                    -= SmoothAppsScroll_Rendering;
-
-                _scrollRenderingAttached = false;
-            }
-
-            _lastScrollFrame = DateTime.MinValue;
+            return null;
         }
 
         private void BackButton_Click(object sender, RoutedEventArgs e)
@@ -199,6 +188,8 @@ namespace KageDock.Views
                     ? $"{_session.SelectedCount} selected"
                     : $"{_session.DiscoveredApps.Count} apps found";
 
+                UpdateAddSelectedButton();
+
                 LoadingText.Visibility = Visibility.Collapsed;
             }
             catch (Exception ex)
@@ -214,91 +205,68 @@ namespace KageDock.Views
             }
         }
 
-
         private void RenderApps()
         {
-            AppsItems.Items.Clear();
-
-
             string filter = SearchBox.Text?.Trim() ?? "";
 
             var visible = _session.DiscoveredApps
-            .Where(a => !IsAlreadyAdded(a))
-            .Where(a =>
-                string.IsNullOrWhiteSpace(filter) ||
-                (a.DisplayName ?? a.Name).Contains(
-                    filter, StringComparison.OrdinalIgnoreCase) ||
-                a.Name.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
-                a.TargetPath.Contains(
-                    filter, StringComparison.OrdinalIgnoreCase) ||
-                (a.Arguments ?? "").Contains(
-                    filter, StringComparison.OrdinalIgnoreCase))
-            .ToList();
+                .Where(a => !IsAlreadyAdded(a))
+                .Where(a =>
+                    string.IsNullOrWhiteSpace(filter) ||
+                    (a.DisplayName ?? a.Name).Contains(
+                        filter, StringComparison.OrdinalIgnoreCase) ||
+                    a.Name.Contains(
+                        filter, StringComparison.OrdinalIgnoreCase) ||
+                    a.TargetPath.Contains(
+                        filter, StringComparison.OrdinalIgnoreCase) ||
+                    (a.Arguments ?? "").Contains(
+                        filter, StringComparison.OrdinalIgnoreCase))
+                .ToList();
 
-            foreach (var app in visible)
-            {
-                var tile = new Border
+                var rows = new List<List<AppTileItem?>>();
+
+                for (int i = 0; i < visible.Count; i += 6)
                 {
-                    Margin = new Thickness(4),
-                    Height = 104,
-                    CornerRadius = new CornerRadius(7),
-                    Background = new SolidColorBrush(
-                        System.Windows.Media.Color.FromRgb(34, 38, 45)),
-                    BorderBrush = new SolidColorBrush(
-                        System.Windows.Media.Color.FromRgb(54, 61, 71)),
-                    BorderThickness = new Thickness(1),
-                    Cursor = System.Windows.Input.Cursors.Hand,
-                    Tag = app
-                };
+                    var row = new List<AppTileItem?>(6);
 
-                var panel = new StackPanel
-                {
-                    Margin = new Thickness(6),
-                    VerticalAlignment = VerticalAlignment.Center
-                };
+                    for (int j = i; j < Math.Min(i + 6, visible.Count); j++)
+                    {
+                        var app = visible[j];
 
-                var icon = new System.Windows.Controls.Image
-                {
-                    Source = app.CachedIcon,
-                    Width = 48,
-                    Height = 48,
-                    Stretch = Stretch.Uniform,
-                    HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
-                    Margin = new Thickness(0, 2, 0, 4)
-                };
-                    
-                var name = new TextBlock
-                {
-                    Text = string.IsNullOrWhiteSpace(app.DisplayName)
-                        ? app.Name
-                        : app.DisplayName,
-                    Foreground = System.Windows.Media.Brushes.White,
-                    FontSize = 10.5,
-                    TextAlignment = System.Windows.TextAlignment.Center,
-                    TextWrapping = System.Windows.TextWrapping.Wrap,
-                    MaxHeight = 30
-                };
+                        row.Add(new AppTileItem(
+                            app,
+                            _session.IsSelected(app.TargetPath)));
+                    }
 
-                panel.Children.Add(icon);
-                panel.Children.Add(name);
-                tile.Child = panel;
+                    // Fill unused cells in the final row.
+                    while (row.Count < 6)
+                        row.Add(null);
 
-                UpdateSelectionStyle(
-                    tile, _session.IsSelected(app.TargetPath));
+                    rows.Add(row);
+                }
+            _visibleAppCount = visible.Count;
 
-                tile.MouseLeftButtonUp += (_, _) =>
-            {
-                bool selected = _session.ToggleSelection(app.TargetPath);
+            AppsItems.ItemsSource = rows;
+        }
 
-                UpdateSelectionStyle(tile, selected);
+        private void AppTile_MouseLeftButtonUp(
+            object sender,
+            System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (sender is not Border tile ||
+                tile.Tag is not AppShortcut app ||
+                tile.DataContext is not AppTileItem item)
+                return;
 
-                SelectionCount.Text = _session.SelectedCount > 0
-                    ? $"{_session.SelectedCount} selected"
-                    : $"{_session.DiscoveredApps.Count} apps found";
-            };
+            bool selected = _session.ToggleSelection(app.TargetPath);
 
-                AppsItems.Items.Add(tile);
-            }
+            item.IsSelected = selected;
+
+            SelectionCount.Text = _session.SelectedCount > 0
+                ? $"{_session.SelectedCount} selected"
+                : $"{_session.DiscoveredApps.Count} apps found";
+
+            UpdateAddSelectedButton();
         }
 
         public void CompleteAdding()
@@ -310,24 +278,14 @@ namespace KageDock.Views
             // Re-render using the updated existing shortcuts.
             RenderApps();
 
-            SelectionCount.Text = $"{AppsItems.Items.Count} apps found";
+            SelectionCount.Text = $"{_visibleAppCount} apps found";
+
+            RefreshDestinationSections();
         }
 
         private bool IsAlreadyAdded(AppShortcut app)
         {
             return _session.IsAlreadyAdded(app.TargetPath);
-        }
-
-        private static void UpdateSelectionStyle(
-            Border tile, bool selected)
-        {
-            tile.BorderBrush = new SolidColorBrush(selected
-                ? System.Windows.Media.Color.FromArgb(100, 235, 242, 255)
-                : System.Windows.Media.Color.FromArgb(35, 220, 230, 245));
-
-            tile.Background = new SolidColorBrush(selected
-                ? System.Windows.Media.Color.FromArgb(65, 220, 230, 245)
-                : System.Windows.Media.Color.FromArgb(45, 12, 15, 21));
         }
 
         private void SearchBox_TextChanged(
@@ -336,11 +294,119 @@ namespace KageDock.Views
             RenderApps();
         }
 
-        private void CategoryBox_SelectionChanged(
-            object sender, SelectionChangedEventArgs e)
+        public void RefreshDestinationSections()
         {
+            _isRefreshingDestination = true;
+
+            try
+            {
+                var sections = _session.GetSectionNames();
+
+                CategoryBox.Items.Clear();
+
+                foreach (string section in sections)
+                    CategoryBox.Items.Add(section);
+
+                CategoryBox.Items.Add(CreateNewSectionLabel);
+
+                NewSectionBox.Clear();
+                CancelNewSectionButton.Visibility = Visibility.Collapsed;
+
+                CategoryBox.SelectedIndex = 0;
+
+                if (sections.Count == 0)
+                {
+                    CategoryBox.Visibility = Visibility.Collapsed;
+                    NewSectionBox.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    CategoryBox.Visibility = Visibility.Visible;
+                    NewSectionBox.Visibility = Visibility.Collapsed;
+                }
+            }
+            finally
+            {
+                _isRefreshingDestination = false;
+            }
+
+            UpdateAddSelectedButton();
         }
 
+        private void CategoryBox_SelectionChanged(
+            object sender,
+            SelectionChangedEventArgs e)
+        {
+            if (_isRefreshingDestination)
+                return;
+
+            if (CategoryBox.SelectedItem?.ToString() == CreateNewSectionLabel)
+            {
+                CategoryBox.Visibility = Visibility.Collapsed;
+                NewSectionBox.Visibility = Visibility.Visible;
+                CancelNewSectionButton.Visibility =
+                    CategoryBox.Items.Count > 1
+                        ? Visibility.Visible
+                        : Visibility.Collapsed;
+
+                NewSectionBox.Text = "";
+                NewSectionBox.Focus();
+            }
+            else
+            {
+                CategoryBox.Visibility = Visibility.Visible;
+                NewSectionBox.Visibility = Visibility.Collapsed;
+                CancelNewSectionButton.Visibility = Visibility.Collapsed;
+            }
+
+            UpdateAddSelectedButton();
+        }
+
+        private void NewSectionBox_TextChanged(
+            object sender,
+            TextChangedEventArgs e)
+        {
+            UpdateAddSelectedButton();
+        }
+
+        private void CancelNewSectionButton_Click(
+            object sender,
+            RoutedEventArgs e)
+        {
+            CategoryBox.SelectedIndex = 0;
+
+            CategoryBox.Visibility = Visibility.Visible;
+            NewSectionBox.Visibility = Visibility.Collapsed;
+            CancelNewSectionButton.Visibility = Visibility.Collapsed;
+
+            UpdateAddSelectedButton();
+        }
+
+        private void UpdateAddSelectedButton()
+        {
+            bool hasSelection = _session.SelectedCount > 0;
+
+            bool validDestination;
+
+            if (IsCreatingNewSection)
+            {
+                string name = NewSectionBox.Text.Trim();
+
+                validDestination =
+                    !string.IsNullOrWhiteSpace(name) &&
+                    !_session.GetSectionNames().Any(section =>
+                        section.Equals(
+                            name,
+                            StringComparison.OrdinalIgnoreCase));
+            }
+            else
+            {
+                validDestination = CategoryBox.SelectedItem is string;
+            }
+
+            AddSelectedButton.IsEnabled =
+                hasSelection && validDestination;
+        }
 
         public void ShowAddedIndicator(int count)
         {
@@ -418,6 +484,9 @@ namespace KageDock.Views
 
         private void AddSelected_Click(object sender, RoutedEventArgs e)
         {
+            if (!AddSelectedButton.IsEnabled)
+                return;
+
             SelectedApps.Clear();
             SelectedApps.AddRange(_session.GetSelectedApps());
 

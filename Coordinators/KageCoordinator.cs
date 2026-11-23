@@ -146,6 +146,7 @@ namespace KageDock.Coordinators
                 return;
 
             _eyeController.Stop();
+            StopEnvironmentalEffects();
             _bubble.Dismiss();
 
             if (_isMusicPlaying)

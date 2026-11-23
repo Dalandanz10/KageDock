@@ -3,6 +3,7 @@ using System.Windows;
 using KageDock.Contracts;
 using KageDock.Views;
 using KageDock.Models;
+using KageDock.Services;
 using System.Threading.Tasks;
 
 namespace KageDock.Modules
@@ -14,15 +15,18 @@ namespace KageDock.Modules
         public event Action<bool>? PlaybackStateChanged;
 
         public string Id => "music";
-
+        private readonly SpotifyMediaSessionService _spotifyMediaSessionService;
         public FrameworkElement View => _view;
 
         public System.Windows.Size PreferredSize =>
             System.Windows.Size.Empty;
 
-        public MusicModule()
+        public MusicModule(SpotifyMediaSessionService spotifyMediaSessionService)
         {
-            _view = new MusicIslandView();
+            _spotifyMediaSessionService = spotifyMediaSessionService
+                ?? throw new ArgumentNullException(nameof(spotifyMediaSessionService));
+
+            _view = new MusicIslandView(_spotifyMediaSessionService);
 
             _view.ReactionRequested += category =>
                 ReactionRequested?.Invoke(category);

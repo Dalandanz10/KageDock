@@ -1,5 +1,5 @@
-
 using System;
+using System.Drawing;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
@@ -11,8 +11,7 @@ namespace KageDock.Services
         private const uint EVENT_OBJECT_LOCATIONCHANGE = 0x800B;
 
         private const uint WINEVENT_OUTOFCONTEXT = 0x0000;
-        private const uint WINEVENT_SKIPOWNPROCESS = 0x0002;
-
+        private RECT? _targetMonitorBounds;
         private const int OBJID_WINDOW = 0;
 
         private const uint MONITOR_DEFAULTTONEAREST = 0x00000002;
@@ -41,6 +40,22 @@ namespace KageDock.Services
             _eventCallback = OnWinEvent;
         }
 
+        public void SetTargetMonitorBounds(Rectangle bounds)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
+            _targetMonitorBounds = new RECT
+            {
+                Left = bounds.Left,
+                Top = bounds.Top,
+                Right = bounds.Right,
+                Bottom = bounds.Bottom
+            };
+
+            if (_started)
+                Refresh();
+        }
+
         public void Start(IntPtr ignoredWindow = default)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
@@ -57,7 +72,7 @@ namespace KageDock.Services
                 _eventCallback,
                 0,
                 0,
-                WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
+                WINEVENT_OUTOFCONTEXT);
 
             _locationHook = SetWinEventHook(
                 EVENT_OBJECT_LOCATIONCHANGE,
@@ -66,7 +81,7 @@ namespace KageDock.Services
                 _eventCallback,
                 0,
                 0,
-                WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
+                WINEVENT_OUTOFCONTEXT);
 
             if (_foregroundHook == IntPtr.Zero ||
                 _locationHook == IntPtr.Zero)
@@ -200,12 +215,22 @@ namespace KageDock.Services
 
             RECT monitorRect = monitorInfo.rcMonitor;
 
+            // Only detect fullscreen applications on KageDock's monitor.
+            if (_targetMonitorBounds is not RECT targetRect ||
+                monitorRect.Left != targetRect.Left ||
+                monitorRect.Top != targetRect.Top ||
+                monitorRect.Right != targetRect.Right ||
+                monitorRect.Bottom != targetRect.Bottom)
+            {
+                return false;
+            }
+
             const int tolerance = 2;
 
             return Math.Abs(windowRect.Left - monitorRect.Left) <= tolerance &&
-                   Math.Abs(windowRect.Top - monitorRect.Top) <= tolerance &&
-                   Math.Abs(windowRect.Right - monitorRect.Right) <= tolerance &&
-                   Math.Abs(windowRect.Bottom - monitorRect.Bottom) <= tolerance;
+                Math.Abs(windowRect.Top - monitorRect.Top) <= tolerance &&
+                Math.Abs(windowRect.Right - monitorRect.Right) <= tolerance &&
+                Math.Abs(windowRect.Bottom - monitorRect.Bottom) <= tolerance;
         }
 
         private void DisposeHooks()

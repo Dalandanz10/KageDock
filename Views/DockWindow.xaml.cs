@@ -7,7 +7,6 @@ using KageDock.Contracts;
 using KageDock.Modules;
 using System;
 using System.Collections.Generic;
-using SystemIcons = System.Drawing.SystemIcons;
 using System.IO;
 using System.Linq;
 using System.Windows;
@@ -23,36 +22,51 @@ using WpfColor = System.Windows.Media.Color;
 
 namespace KageDock.Views
 {
-    public partial class DockWindow : Window
+    public partial class DockWindow : Window, IMyAppsHost
     {
+                // My Apps host communication.
+        Canvas IMyAppsHost.DragOverlay => this.DragOverlay;
+
+        bool IMyAppsHost.IsDockExpanded => _expanded;
+        bool IMyAppsHost.IsContextMenuOpen => _contextMenuOpen;
+        void IMyAppsHost.SetMyAppsDragActive(bool isActive)
+        {
+            _myAppsDragActive = isActive;
+
+            if (isActive)
+                CancelCollapseTimer();
+        }
+        void IMyAppsHost.SetContextMenuOpen(bool isOpen)
+        {
+            _contextMenuOpen = isOpen;
+        }
+        bool IMyAppsHost.IsChildWindowVisible =>
+            _activeChildWindow?.IsVisible == true;
+
+        bool IMyAppsHost.IsWindowMouseOver => IsMouseOver;
+        bool IMyAppsHost.IsDockPanelMouseOver => DockPanel.IsMouseOver;
+        bool IMyAppsHost.IsTopHoverTriggerMouseOver =>
+            TopHoverTrigger.IsMouseOver;
+
+        private bool _myAppsDragActive;
+        void IMyAppsHost.CollapseDock() => CollapseDock();
+        void IMyAppsHost.ScheduleCollapse() => ScheduleCollapse();
+        void IMyAppsHost.CancelCollapseTimer() => CancelCollapseTimer();
         private const double PanelWidth = 430;
         private DockConfig _config = new();
-        private List<AppShortcut> _shortcuts = new();
+        private readonly ShortcutStore _shortcutStore = new();
+        private List<AppShortcut> _shortcuts => _shortcutStore.Shortcuts;
         private bool _contextMenuOpen;
         private bool _expanded;
         private ShortcutCoordinator? _shortcutCoordinator;
         private readonly IconService _iconService = new();
-        private AppShortcut? _pendingDropRippleShortcut;
         private Forms.NotifyIcon? _trayIcon;
         private Forms.ContextMenuStrip? _trayMenu;
-        private DockScrollController? _dockScrollController;
         private readonly DockContentHost _contentHost = new();
-        private DateTime _lastDragAutoScrollTick = DateTime.MinValue;
-        private System.Windows.Point _dragStartPoint;
         private DispatcherTimer? _dragAutoScrollTimer;
-        private double _dragPointerY;
-        private AppShortcut? _pendingDragShortcut;
-        private AppShortcut? _previewDraggedShortcut;
         private AddAppsWindow? _addAppsView;
         private AddAppsSession? _addAppsSession;
-        private string? _previewCategory;
-        private int _previewInsertSlot = -1;
-        private bool _dragStarted;
-        private Border? _dragSourceTile;
-        private FrameworkElement? _floatingDragVisual;
-        private System.Windows.Point _floatingDragOffset;
         private DispatcherTimer? _hideTimer;
-        private Border? _newSectionDropZone;
         private Window? _activeChildWindow;
         private int _dockAnimationVersion = 0;
         private TaskCompletionSource<bool>? _morphCompletion;
@@ -64,6 +78,7 @@ namespace KageDock.Views
         private DockContentAnimationController? _dockContentAnimationController;
         private FullscreenDetectionService? _fullscreenDetectionService;
         private KageVisibilityController? _kageVisibilityController;
+        private readonly SpotifyMediaSessionService _spotifyMediaSessionService;
         private DockView? _currentView;
         private DockView? _targetView;
         private enum DockView
@@ -74,8 +89,11 @@ namespace KageDock.Views
             AddApps
         }
 
-        public DockWindow()
+        public DockWindow(SpotifyMediaSessionService spotifyMediaSessionService)
         {
+            _spotifyMediaSessionService = spotifyMediaSessionService
+                ?? throw new ArgumentNullException(nameof(spotifyMediaSessionService));
+
             InitializeComponent();
 
             _contentHost.Register(
@@ -91,7 +109,7 @@ namespace KageDock.Views
                     displayName: "Music",
                     factory: () =>
                     {
-                        var module = new MusicModule();
+                        var module = new MusicModule(_spotifyMediaSessionService);
 
                         module.ReactionRequested +=
                             _kageCoordinator!.ShowReaction;
@@ -103,18 +121,24 @@ namespace KageDock.Views
                     },
                     order: 1));
 
+            _contentHost.Register(
+                new DockModuleDescriptor(
+                    id: "myapps",
+                    displayName: "My Apps",
+                    factory: () => new MyAppsModule(
+                        this,
+                        _shortcutStore,
+                        _shortcutCoordinator
+                            ?? throw new InvalidOperationException(
+                                "ShortcutCoordinator has not been initialized."),
+                        _iconService),
+                    order: 0));
+
             _dockContentAnimationController = new DockContentAnimationController(
                 NavIndicatorTransform,
                 AddAppsContent,
-                AppScrollViewer,
                 () => IsLoaded,
                 () => _expanded);
-
-            _dockScrollController = new DockScrollController(AppScrollViewer);
-
-            SectionsPanel.AllowDrop = true;
-            SectionsPanel.Background = System.Windows.Media.Brushes.Transparent;
-            SectionsPanel.Drop += Section_Drop;
 
             SourceInitialized += (_, _) => SetupTrayIcon();
         }
@@ -147,6 +171,15 @@ namespace KageDock.Views
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
             ReloadConfiguration();
+
+            // Initialize the default My Apps module.
+            var myAppsModule = _contentHost.Activate("myapps");
+
+            AddAppsContent.Children.Clear();
+            AddAppsContent.Children.Add(myAppsModule.View);
+
+            AddAppsContent.Visibility = Visibility.Visible;
+            AddAppsContent.IsHitTestVisible = true;
 
             TitleText.Text = string.IsNullOrWhiteSpace(_config.LauncherTitle)
                 ? "My Apps"
@@ -183,6 +216,9 @@ namespace KageDock.Views
             if (_fullscreenDetectionService == null)
             {
                 _fullscreenDetectionService = new FullscreenDetectionService();
+
+                _fullscreenDetectionService.SetTargetMonitorBounds(
+                    ScreenService.GetScreen(_config.TargetMonitor).Bounds);
 
                 _fullscreenDetectionService.Start(
                     new System.Windows.Interop.WindowInteropHelper(this).Handle);
@@ -242,44 +278,17 @@ namespace KageDock.Views
         {
             _config = ConfigService.LoadConfig();
 
+            _fullscreenDetectionService?.SetTargetMonitorBounds(
+                ScreenService.GetScreen(_config.TargetMonitor).Bounds);
+
             _kageCoordinator?.ApplyConfiguration();
 
-            // Preserve icons already extracted before the configuration reload.
-            var cachedIcons = _shortcuts
-                .Where(s =>
-                    s.CachedIcon != null &&
-                    !string.IsNullOrWhiteSpace(s.TargetPath))
-                .GroupBy(
-                    GetIconCacheKey,
-                    StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(
-                    g => g.Key,
-                    g => g.First().CachedIcon!,
-                    StringComparer.OrdinalIgnoreCase);
+            _shortcutStore.Reload();
 
-            var reloadedShortcuts = ConfigService.LoadShortcuts()
-                .OrderBy(s => s.OrderIndex)
-                .ToList();
+            _shortcutCoordinator = new ShortcutCoordinator(_shortcutStore);
 
-            foreach (var shortcut in reloadedShortcuts)
-            {
-                if (string.IsNullOrWhiteSpace(shortcut.TargetPath))
-                    continue;
-
-                if (cachedIcons.TryGetValue(
-                    GetIconCacheKey(shortcut),
-                    out var cachedIcon))
-                {
-                    shortcut.CachedIcon = cachedIcon;
-                }
-            }
-
-            _shortcuts = reloadedShortcuts;
-
-            _shortcutCoordinator = new ShortcutCoordinator(_shortcuts);
-
-            _addAppsSession = new AddAppsSession(
-                _shortcuts,
+            _addAppsSession ??= new AddAppsSession(
+                _shortcutStore,
                 _iconService);
 
             // Only reposition and resize the window when the target monitor changes.
@@ -296,7 +305,8 @@ namespace KageDock.Views
                 ApplyDockViewSize(activeWidth, activeHeight);
             }
 
-            RefreshSections();
+            if (_contentHost.ActiveModule is MyAppsModule myAppsModule)
+                myAppsModule.Refresh();
         }
 
         private void UpdateWindowBounds()
@@ -330,9 +340,17 @@ namespace KageDock.Views
             _trayMenu.Items.Add(new Forms.ToolStripSeparator());
             _trayMenu.Items.Add("Exit", null, (_, _) => Dispatcher.Invoke(Close));
 
+            var iconPath = Path.Combine(
+                AppContext.BaseDirectory,
+                "Assets",
+                "Images",
+                "kage-logo.ico");
+
+            using var trayIcon = new Icon(iconPath);
+
             _trayIcon = new Forms.NotifyIcon
             {
-                Icon = SystemIcons.Application,
+                Icon = (Icon)trayIcon.Clone(),
                 Text = "KageDock",
                 ContextMenuStrip = _trayMenu,
                 Visible = true
@@ -439,40 +457,42 @@ namespace KageDock.Views
 
         protected override void OnClosed(EventArgs e)
         {
-            _contentHost.Dispose();
+            try
+            {
+                _contentHost.Dispose();
+            }
+            finally
+            {
+                // Shut down views.
+                _dragAutoScrollTimer?.Stop();
+                _dragAutoScrollTimer = null;
 
-            // Shut down views.
-            _dragAutoScrollTimer?.Stop();
-            _dragAutoScrollTimer = null;
+                CancelCollapseTimer();
 
-            CancelCollapseTimer();
+                // Complete any pending dock transition.
+                _morphCompletion?.TrySetResult(true);
+                _morphCompletion = null;
 
-            _dockScrollController?.Dispose();
-            _dockScrollController = null;
+                // Dispose Kage coordinator.
+                _kageCoordinator?.Dispose();
+                _kageCoordinator = null;
 
-            // Complete any pending dock transition.
-            _morphCompletion?.TrySetResult(true);
-            _morphCompletion = null;
+                // Dispose visibility services.
+                _kageVisibilityController?.Dispose();
+                _kageVisibilityController = null;
 
-            // Dispose Kage coordinator.
-            _kageCoordinator?.Dispose();
-            _kageCoordinator = null;
+                _fullscreenDetectionService?.Dispose();
+                _fullscreenDetectionService = null;
 
-            // Dispose visibility services.
-            _kageVisibilityController?.Dispose();
-            _kageVisibilityController = null;
+                // Dispose system tray resources.
+                _trayIcon?.Dispose();
+                _trayIcon = null;
 
-            _fullscreenDetectionService?.Dispose();
-            _fullscreenDetectionService = null;
+                _trayMenu?.Dispose();
+                _trayMenu = null;
 
-            // Dispose system tray resources.
-            _trayIcon?.Dispose();
-            _trayIcon = null;
-
-            _trayMenu?.Dispose();
-            _trayMenu = null;
-
-            base.OnClosed(e);
+                base.OnClosed(e);
+            }
         }
         private void OnWindowMouseEnter(object sender, System.Windows.Input.MouseEventArgs e) => ExpandDock();
     }

@@ -27,7 +27,7 @@ namespace KageDock.Views
             AnimateDockReveal(true);
         }
 
-            
+
         private void CollapseDock()
         {
             if (!_expanded)
@@ -42,8 +42,8 @@ namespace KageDock.Views
             AnimateDockReveal(false);
         }
 
-             
-              
+
+
             private void AnimateDockReveal(bool opening)
             {
                 const double collapsedWidth = 100;
@@ -105,24 +105,19 @@ namespace KageDock.Views
                 _morphCompletion = new TaskCompletionSource<bool>(
                     TaskCreationOptions.RunContinuationsAsynchronously);
 
-                
+
                 if (opening)
                 {
                     ExpandedDockContent.Visibility = Visibility.Visible;
                     ExpandedDockContent.IsHitTestVisible = true;
                     KageStrip.Visibility = Visibility.Collapsed;
 
-                    // Hide only the active content before the dock expands.
-                    if (AddAppsContent.Visibility == Visibility.Visible)
-                    {
-                        AddAppsContent.BeginAnimation(UIElement.OpacityProperty, null);
-                        AddAppsContent.Opacity = 0;
-                    }
-                    else if (AppScrollViewer.Visibility == Visibility.Visible)
-                    {
-                        AppScrollViewer.BeginAnimation(UIElement.OpacityProperty, null);
-                        AppScrollViewer.Opacity = 0;
-                    }
+                    // Hide the active content before the dock expands.
+                if (AddAppsContent.Visibility == Visibility.Visible)
+                {
+                    AddAppsContent.BeginAnimation(UIElement.OpacityProperty, null);
+                    AddAppsContent.Opacity = 0;
+                }
 
                     Dispatcher.BeginInvoke(
                         DispatcherPriority.Loaded,
@@ -318,7 +313,7 @@ namespace KageDock.Views
                                 if (_activeChildWindow != null && _activeChildWindow.IsVisible)
                                     return;
 
-                                if (_dragStarted || _contextMenuOpen)
+                                if (_myAppsDragActive || _contextMenuOpen)
                                     return;
 
                                 if (!DockPanel.IsMouseOver && !TopHoverTrigger.IsMouseOver)
@@ -340,7 +335,7 @@ namespace KageDock.Views
                         _morphCompletion = null;
                     }
                 };
-                
+
 
                 DockRevealHost.BeginAnimation(FrameworkElement.WidthProperty, widthAnimation);
 
@@ -376,8 +371,8 @@ namespace KageDock.Views
                 ExpandDock();
             }
 
-        
-        
+
+
             private void HitStrip_MouseLeave(
             object sender,
             System.Windows.Input.MouseEventArgs e)
@@ -391,8 +386,8 @@ namespace KageDock.Views
             if (_activeChildWindow != null && _activeChildWindow.IsVisible) return;
             ScheduleCollapse(100);
         }
-     
-        
+
+
         private void ScheduleCollapse(int delayMs = 180)
         {
 
@@ -422,7 +417,7 @@ namespace KageDock.Views
                 if (_activeChildWindow != null && _activeChildWindow.IsVisible)
                     return;
 
-                if (_dragStarted || _contextMenuOpen)
+                if (_myAppsDragActive || _myAppsDragActive || _contextMenuOpen)
                     return;
 
                 if (Mouse.LeftButton == MouseButtonState.Pressed)
@@ -460,7 +455,7 @@ namespace KageDock.Views
                     if (_activeChildWindow != null && _activeChildWindow.IsVisible)
                         return;
 
-                    if (_dragStarted || _contextMenuOpen)
+                    if (_myAppsDragActive || _contextMenuOpen)
                         return;
 
                     if (DockPanel.IsMouseOver || TopHoverTrigger.IsMouseOver)
@@ -474,16 +469,14 @@ namespace KageDock.Views
             object sender,
             MouseButtonEventArgs e)
         {
-            if (!_expanded || _dragStarted || _contextMenuOpen)
+            if (!_expanded || _myAppsDragActive || _myAppsDragActive || _contextMenuOpen)
                 return;
 
             Dispatcher.BeginInvoke(
                 DispatcherPriority.Background,
                 new Action(() =>
                 {
-                    if (!_expanded ||
-                        _dragStarted ||
-                        _contextMenuOpen)
+                    if (!_expanded || _myAppsDragActive || _myAppsDragActive || _contextMenuOpen)
                         return;
 
                     if (_activeChildWindow != null && _activeChildWindow.IsVisible)
@@ -555,7 +548,7 @@ namespace KageDock.Views
 
             ApplyDockViewSize(startWidth, startHeight);
 
-            var duration = TimeSpan.FromMilliseconds(250);
+            var duration = TimeSpan.FromMilliseconds(340);
             var settleEase = new CubicEase
             {
                 EasingMode = EasingMode.EaseOut
@@ -675,7 +668,7 @@ namespace KageDock.Views
                         if (_activeChildWindow != null && _activeChildWindow.IsVisible)
                             return;
 
-                        if (_dragStarted || _contextMenuOpen)
+                        if (_myAppsDragActive || _contextMenuOpen)
                             return;
 
                         if (Mouse.LeftButton == MouseButtonState.Pressed)

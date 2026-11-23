@@ -8,48 +8,37 @@ namespace KageDock.Views
 {
     public partial class DockWindow
     {
-             private void SectionsButton_Click(object sender, RoutedEventArgs e)
+        private async void SectionsButton_Click(object sender, RoutedEventArgs e)
         {
-            _dockContentAnimationController?.InvalidatePendingPageTransition();
-
-            _contentHost.DeactivateActive();
-
             _dockContentAnimationController?.MoveNavIndicator(0);
 
             CancelCollapseTimer();
 
-            // Remove whichever view is currently displayed.
-            AddAppsContent.Children.Clear();
-
-            AddAppsContent.Visibility = Visibility.Collapsed;
-            AddAppsContent.IsHitTestVisible = false;
-            AddAppsContent.Opacity = 1;
-
-            // Reset the Add Apps view reference.
-            _addAppsView = null;
-
-            // Restore My Apps.
-            TitleText.Text = string.IsNullOrWhiteSpace(_config.LauncherTitle)
-                ? "Apps"
-                : _config.LauncherTitle;
-
-            AppScrollViewer.Visibility = Visibility.Visible;
-            NewSectionDropZoneHost.Visibility = Visibility.Visible;
-
-            AppScrollViewer.BeginAnimation(UIElement.OpacityProperty, null);
-            AppScrollViewer.Opacity = 1;
-
-            NewSectionDropZoneHost.BeginAnimation(UIElement.OpacityProperty, null);
-            NewSectionDropZoneHost.Opacity = 1;
-
-            // Ensure the navigation remains available.
             if (!_expanded)
+            {
                 ExpandDock();
+                return;
+            }
 
-            MorphDockToView(DockView.MyApps);
+            var myAppsModule = _contentHost.Activate("myapps");
+
+            await _dockContentAnimationController!.TransitionPageContentAsync(() =>
+            {
+                AddAppsContent.Children.Clear();
+                AddAppsContent.Children.Add(myAppsModule.View);
+
+                AddAppsContent.Visibility = Visibility.Visible;
+                AddAppsContent.IsHitTestVisible = true;
+
+                TitleText.Text = string.IsNullOrWhiteSpace(_config.LauncherTitle)
+                    ? "Apps"
+                    : _config.LauncherTitle;
+
+                MorphDockToView(DockView.MyApps);
+            });
         }
 
-        
+
         private async void TimerButton_Click(object sender, RoutedEventArgs e)
         {
             _dockContentAnimationController?.MoveNavIndicator(2);
@@ -62,12 +51,6 @@ namespace KageDock.Views
                 return;
             }
 
-            if (_addAppsView != null)
-            {
-                AddAppsContent.Children.Clear();
-                _addAppsView = null;
-            }
-
             var timerModule = _contentHost.Activate("timer");
 
             await _dockContentAnimationController!.TransitionPageContentAsync(() =>
@@ -78,15 +61,12 @@ namespace KageDock.Views
                 AddAppsContent.Visibility = Visibility.Visible;
                 AddAppsContent.IsHitTestVisible = true;
 
-                AppScrollViewer.Visibility = Visibility.Collapsed;
-                NewSectionDropZoneHost.Visibility = Visibility.Collapsed;
-
                 TitleText.Text = "Timer";
 
                 MorphDockToView(DockView.Timer);
             });
         }
-        
+
         private async void MusicButton_Click(object sender, RoutedEventArgs e)
         {
             _dockContentAnimationController?.MoveNavIndicator(1);
@@ -101,12 +81,6 @@ namespace KageDock.Views
 
             var musicModule = (MusicModule)_contentHost.Activate("music");
 
-            if (_addAppsView != null)
-            {
-                AddAppsContent.Children.Clear();
-                _addAppsView = null;
-            }
-
             await _dockContentAnimationController!.TransitionPageContentAsync(() =>
             {
                 AddAppsContent.Children.Clear();
@@ -115,22 +89,22 @@ namespace KageDock.Views
                 AddAppsContent.Visibility = Visibility.Visible;
                 AddAppsContent.IsHitTestVisible = true;
 
-                AppScrollViewer.Visibility = Visibility.Collapsed;
-                NewSectionDropZoneHost.Visibility = Visibility.Collapsed;
-
                 TitleText.Text = "Music";
 
                 MorphDockToView(DockView.Music);
             });
         }
 
+
         private void AddAppsButton_Click(object sender, RoutedEventArgs e)
         {
             CancelCollapseTimer();
 
-            if (_addAppsView != null)
+            // Already displaying Add Apps.
+            if (_addAppsView != null &&
+                AddAppsContent.Children.Contains(_addAppsView))
                 return;
-                
+
             _dockContentAnimationController?.InvalidatePendingPageTransition();
 
             // Ensure the dock is expanded before showing the picker.
@@ -139,8 +113,93 @@ namespace KageDock.Views
 
             _contentHost.DeactivateActive();
 
-            _addAppsView = new AddAppsWindow(_addAppsSession!);
+            // Create the window only once.
+            if (_addAppsView == null)
+            {
+                _addAppsView = new AddAppsWindow(_addAppsSession!);
 
+                _addAppsView.BackRequested += () =>
+                {
+                    _dockContentAnimationController?.InvalidatePendingPageTransition();
+
+                    AddAppsContent.Children.Clear();
+
+                    var myAppsModule = _contentHost.Activate("myapps");
+
+                    AddAppsContent.Children.Add(myAppsModule.View);
+
+                    AddAppsContent.Visibility = Visibility.Visible;
+                    AddAppsContent.Opacity = 1;
+                    AddAppsContent.IsHitTestVisible = true;
+
+                    TitleText.Text = string.IsNullOrWhiteSpace(_config.LauncherTitle)
+                        ? "Apps"
+                        : _config.LauncherTitle;
+
+                    _dockContentAnimationController?.MoveNavIndicator(0);
+                    MorphDockToView(DockView.MyApps);
+                };
+
+
+                    _addAppsView.Finished += () =>
+                    {
+                        var picker = _addAppsView;
+                        if (picker == null)
+                            return;
+
+                        if (picker.IsCreatingNewSection)
+                        {
+                            _shortcutCoordinator!.AddAppsToNewSection(
+                                picker.SelectedApps,
+                                picker.SelectedCategory);
+                        }
+                        else
+                        {
+                            _shortcutCoordinator!.AddApps(
+                                picker.SelectedApps,
+                                picker.SelectedCategory);
+                        }
+
+                        // Identify only the shortcuts that were successfully added.
+                        var newlyAddedApps =
+                            _shortcutCoordinator!.GetNewlyAddedApps(picker.SelectedApps);
+
+                        _shortcutCoordinator.Save();
+
+                        if (_contentHost.Prepare("myapps") is MyAppsModule myAppsModule)
+                        {
+                            myAppsModule.HighlightNewApps(newlyAddedApps);
+                            myAppsModule.Refresh();
+                        }
+
+                        picker.CompleteAdding();
+
+                        // Return to My Apps automatically.
+                        _dockContentAnimationController?.InvalidatePendingPageTransition();
+
+                        AddAppsContent.Children.Clear();
+
+                        var activeMyAppsModule = _contentHost.Activate("myapps");
+
+                        AddAppsContent.Children.Add(activeMyAppsModule.View);
+
+                        AddAppsContent.Visibility = Visibility.Visible;
+                        AddAppsContent.Opacity = 1;
+                        AddAppsContent.IsHitTestVisible = true;
+
+                        TitleText.Text = string.IsNullOrWhiteSpace(_config.LauncherTitle)
+                            ? "Apps"
+                            : _config.LauncherTitle;
+
+                        _dockContentAnimationController?.MoveNavIndicator(0);
+                        MorphDockToView(DockView.MyApps);
+                    };
+            }
+
+            // Refresh destinations in case My Apps sections changed.
+            _addAppsView.RefreshDestinationSections();
+
+            // Reattach the existing window.
             AddAppsContent.Children.Clear();
             AddAppsContent.Children.Add(_addAppsView);
 
@@ -149,47 +208,8 @@ namespace KageDock.Views
             AddAppsContent.IsHitTestVisible = true;
 
             TitleText.Text = "Add Apps";
-            AppScrollViewer.Visibility = Visibility.Collapsed;
-            NewSectionDropZoneHost.Visibility = Visibility.Collapsed;
 
             MorphDockToView(DockView.AddApps);
-
-            _addAppsView.BackRequested += () =>
-            {
-                _dockContentAnimationController?.InvalidatePendingPageTransition();
-
-                AddAppsContent.Visibility = Visibility.Collapsed;
-                AddAppsContent.IsHitTestVisible = false;
-                AddAppsContent.Children.Clear();
-
-                TitleText.Text = string.IsNullOrWhiteSpace(_config.LauncherTitle)
-                    ? "Apps"
-                    : _config.LauncherTitle;
-
-                AppScrollViewer.Visibility = Visibility.Visible;
-                NewSectionDropZoneHost.Visibility = Visibility.Visible;
-
-                _addAppsView = null;
-
-                _dockContentAnimationController?.MoveNavIndicator(0);
-                MorphDockToView(DockView.MyApps);
-            };
-
-            _addAppsView.Finished += () =>
-            {
-                var picker = _addAppsView;
-                if (picker == null)
-                    return;
-
-                int addedCount = _shortcutCoordinator!.AddApps(
-                    picker.SelectedApps,
-                    picker.SelectedCategory);
-
-                SaveAndRefresh();
-
-                picker.CompleteAdding();
-                picker.ShowAddedIndicator(addedCount);
-            };
-        }      
+        }
     }
 }

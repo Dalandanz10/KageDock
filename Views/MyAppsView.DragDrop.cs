@@ -8,14 +8,14 @@ using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using WpfColor = System.Windows.Media.Color;
 using System.IO;
+using System.Collections.Generic;
+using KageDock.Coordinators;
 using KageDock.Models;
 
 namespace KageDock.Views
 {
-    public partial class DockWindow
+    public partial class MyAppsView
     {
-
-    private System.Windows.Controls.Primitives.UniformGrid? _previewGrid;
       private void HideDraggedShortcutTile()
     {
         if (!_dragStarted || _pendingDragShortcut == null)
@@ -218,7 +218,7 @@ namespace KageDock.Views
 
                 var screenPoint = System.Windows.Forms.Cursor.Position;
 
-                var cursor = DragOverlay.PointFromScreen(
+                var cursor = _host.DragOverlay.PointFromScreen(
                     new System.Windows.Point(screenPoint.X, screenPoint.Y));
 
                 System.Windows.Controls.Canvas.SetLeft(
@@ -239,7 +239,7 @@ namespace KageDock.Views
                 var ghost = _floatingDragVisual;
 
                 // Find the original tile's position inside the drag overlay.
-                var origin = sourceTile.TransformToVisual(DragOverlay)
+                var origin = sourceTile.TransformToVisual(_host.DragOverlay)
                     .Transform(new System.Windows.Point(0, 0));
 
                 var duration = TimeSpan.FromMilliseconds(220);
@@ -607,7 +607,7 @@ namespace KageDock.Views
 
                 if (shiftLeft)
                 {
-                    if (currentSlot > leftGap && currentSlot < insertSlot)
+                    if (currentSlot > leftGap && currentSlot <= insertSlot)
                         previewSlot = currentSlot - 1;
                 }
                 else if (targetOccupied && currentSlot >= insertSlot)
@@ -693,6 +693,7 @@ namespace KageDock.Views
             int columns,
             int baseSlotCount)
         {
+            
             var previewSlots = grid.Children
                 .OfType<FrameworkElement>()
                 .Where(element =>
@@ -842,11 +843,11 @@ namespace KageDock.Views
                 .OfType<TranslateTransform>()
                 .ToList();
 
-            // The last translation belongs exclusively to preview movement.
-            if (transforms.Count < 2)
+            // The second-to-last translation belongs exclusively to preview movement.
+            if (transforms.Count < 3)
                 return;
 
-            var transform = transforms[^1];
+            var transform = transforms[^2];
 
             // Capture the current animated position before changing base values.
             double currentX = transform.X;
@@ -916,6 +917,7 @@ namespace KageDock.Views
 
             return null;
         }
+
 
         private void Section_DragOver(object sender, System.Windows.DragEventArgs e)
     {
@@ -997,7 +999,6 @@ namespace KageDock.Views
 
         e.Handled = true;
     }
-
     
         private void Section_Drop(object sender, System.Windows.DragEventArgs e)
         {
@@ -1034,6 +1035,8 @@ namespace KageDock.Views
 
                         SaveAndRefresh();
 
+                        _sectionsRefreshedDuringDrag = true;
+
                         _pendingDropRippleShortcut = dragged;
 
                         e.Handled = true;
@@ -1052,6 +1055,8 @@ namespace KageDock.Views
                 {
                     _shortcutCoordinator!.MoveToNewSection(dragged);
                     SaveAndRefresh();
+
+                    _sectionsRefreshedDuringDrag = true;
 
                     e.Handled = true;
                     return;
@@ -1141,6 +1146,9 @@ namespace KageDock.Views
                     destinationApps);
 
                 SaveAndRefresh();
+
+                _sectionsRefreshedDuringDrag = true;
+
                 e.Handled = true;
                 return;
             }

@@ -16,13 +16,13 @@ using System.Windows.Media.Animation;
 using System.Windows.Controls.Primitives;
 using System.Windows.Shapes;
 using System.Collections.Generic;
+using KageDock.Services;
 using KageDock.Models;
 
 namespace KageDock.Views
 {
     public partial class MusicIslandView : System.Windows.Controls.UserControl
     {
-        private GlobalSystemMediaTransportControlsSessionManager? _manager;
         private Task? _initializationTask;
         private bool _isShutdown;
         private GlobalSystemMediaTransportControlsSession? _spotifySession;
@@ -60,9 +60,26 @@ namespace KageDock.Views
         private TimeSpan _lastParticleFrame;
         private double _particleSpawnAccumulator;
 
-        public MusicIslandView()
+        private readonly SpotifyMediaSessionService _spotifyMediaSessionService;
+
+        public MusicIslandView(SpotifyMediaSessionService spotifyMediaSessionService)
         {
+            _spotifyMediaSessionService = spotifyMediaSessionService
+                ?? throw new ArgumentNullException(nameof(spotifyMediaSessionService));
+
             InitializeComponent();
+
+            _spotifyMediaSessionService.SessionChanged +=
+                SpotifyMediaSessionService_SessionChanged;
+
+            _spotifyMediaSessionService.MediaPropertiesChanged +=
+                Spotify_MediaPropertiesChanged;
+
+            _spotifyMediaSessionService.PlaybackInfoChanged +=
+                Spotify_PlaybackInfoChanged;
+
+            _spotifyMediaSessionService.TimelinePropertiesChanged +=
+                Spotify_TimelinePropertiesChanged;
 
             PreviousButton.Click += PreviousButton_Click;
             PlayPauseButton.Click += PlayPauseButton_Click;
@@ -722,19 +739,18 @@ namespace KageDock.Views
                 if (_isShutdown)
                     return;
 
-                _manager = await Task.Run(async () =>
-                    await GlobalSystemMediaTransportControlsSessionManager.RequestAsync());
+                await _spotifyMediaSessionService.InitializeAsync();
 
                 if (_isShutdown)
-                {
-                    _manager = null;
                     return;
+
+                var currentSession = _spotifyMediaSessionService.CurrentSession;
+
+                if (currentSession == null ||
+                    !ReferenceEquals(_spotifySession, currentSession))
+                {
+                    await HandleSpotifySessionChangedAsync(currentSession);
                 }
-
-                _manager.SessionsChanged += Manager_SessionsChanged;
-                _manager.CurrentSessionChanged += Manager_CurrentSessionChanged;
-
-                await FindSpotifySessionAsync();
             }
             catch (Exception ex)
             {
@@ -771,49 +787,50 @@ namespace KageDock.Views
             }
 
         public void Shutdown()
+        {
+            if (_isShutdown)
+                return;
+
+            _isShutdown = true;
+
+            // Stop title marquee animation.
+            TrackTitleTransform.BeginAnimation(
+                TranslateTransform.XProperty,
+                null);
+
+            TrackTitleTransform.X = 0;
+
+            // Stop progress rendering.
+            if (_isRenderingProgress)
             {
-                if (_isShutdown)
-                    return;
+                CompositionTarget.Rendering -= CompositionTarget_Rendering;
+                _isRenderingProgress = false;
+            }
 
-                _isShutdown = true;
-
-                // Stop title marquee animation.
-                TrackTitleTransform.BeginAnimation(
-                    TranslateTransform.XProperty,
-                    null);
-
-                TrackTitleTransform.X = 0;
-
-                if (_isRenderingProgress)
-                {
-                    CompositionTarget.Rendering -= CompositionTarget_Rendering;
-                    _isRenderingProgress = false;
-                }
-
-                StopParticleRendering();
+            StopParticleRendering();
 
             _progressParticles.Clear();
             ProgressParticleCanvas.Children.Clear();
 
-            if (_manager != null)
-            {
-                _manager.SessionsChanged -= Manager_SessionsChanged;
-                _manager.CurrentSessionChanged -= Manager_CurrentSessionChanged;
-                _manager = null;
-            }
+            // Unsubscribe from the shared Spotify service.
+            _spotifyMediaSessionService.SessionChanged -=
+                SpotifyMediaSessionService_SessionChanged;
 
-            if (_spotifySession != null)
-            {
-                _spotifySession.MediaPropertiesChanged -= Spotify_MediaPropertiesChanged;
-                _spotifySession.PlaybackInfoChanged -= Spotify_PlaybackInfoChanged;
-                _spotifySession.TimelinePropertiesChanged -= Spotify_TimelinePropertiesChanged;
+            _spotifyMediaSessionService.MediaPropertiesChanged -=
+                Spotify_MediaPropertiesChanged;
 
-                _spotifySession = null;
+            _spotifyMediaSessionService.PlaybackInfoChanged -=
+                Spotify_PlaybackInfoChanged;
 
-                _artworkRequestVersion++;
-                _cachedArtworkKey = null;
-                _cachedArtwork = null;
-            }
+            _spotifyMediaSessionService.TimelinePropertiesChanged -=
+                Spotify_TimelinePropertiesChanged;
+
+            // Release the current session reference.
+            _spotifySession = null;
+
+            _artworkRequestVersion++;
+            _cachedArtworkKey = null;
+            _cachedArtwork = null;
 
             _hasPlaybackStatus = false;
             _wasPlaying = false;
@@ -821,51 +838,22 @@ namespace KageDock.Views
             PlaybackStateChanged?.Invoke(false);
         }
 
-        private async void Manager_SessionsChanged(
-            GlobalSystemMediaTransportControlsSessionManager sender,
-            SessionsChangedEventArgs args)
+        private async void SpotifyMediaSessionService_SessionChanged(
+            GlobalSystemMediaTransportControlsSession? session)
         {
-
-
-            await Dispatcher.InvokeAsync(FindSpotifySessionAsync)
-                .Task.Unwrap();
+            await HandleSpotifySessionChangedAsync(session);
         }
 
-        private async void Manager_CurrentSessionChanged(
-            GlobalSystemMediaTransportControlsSessionManager sender,
-            CurrentSessionChangedEventArgs args)
+        private async Task HandleSpotifySessionChangedAsync(
+            GlobalSystemMediaTransportControlsSession? session)
         {
-
-            await Dispatcher.InvokeAsync(FindSpotifySessionAsync)
-            .Task.Unwrap();
-        }
-
-        private async Task FindSpotifySessionAsync()
-        {
-            if (_manager == null)
+            if (_isShutdown)
                 return;
-
-            var sessions = _manager.GetSessions();
-
-            foreach (var item in sessions)
-            {
-
-            }
-
-            var session = sessions.FirstOrDefault(s =>
-                s.SourceAppUserModelId.Contains(
-                    "Spotify",
-                    StringComparison.OrdinalIgnoreCase));
-
 
             if (session == null)
             {
                 if (_spotifySession != null)
                 {
-                    _spotifySession.MediaPropertiesChanged -= Spotify_MediaPropertiesChanged;
-                    _spotifySession.PlaybackInfoChanged -= Spotify_PlaybackInfoChanged;
-                    _spotifySession.TimelinePropertiesChanged -= Spotify_TimelinePropertiesChanged;
-
                     _artworkRequestVersion++;
                     _cachedArtworkKey = null;
                     _cachedArtwork = null;
@@ -874,18 +862,15 @@ namespace KageDock.Views
                     _wasPlaying = false;
 
                     PlaybackStateChanged?.Invoke(false);
-
                     _spotifySession = null;
                 }
 
-                // Stop progress tracking for the missing session.
                 _progressClock.Reset();
                 _positionAtSync = 0;
                 _durationSeconds = 0;
                 _seekSyncPending = false;
                 _trackChangePending = false;
 
-                // Stop and clear particle rendering.
                 StopParticleRendering();
                 _progressParticles.Clear();
                 ProgressParticleCanvas.Children.Clear();
@@ -897,17 +882,18 @@ namespace KageDock.Views
                 }
 
                 ConnectionText.Text = "SPOTIFY NOT FOUND";
-
-                ConnectionText.Text = "SPOTIFY NOT FOUND";
                 TrackTitle.Text = "Open Spotify Desktop";
                 ArtistName.Text = "Start playing a song";
                 AlbumName.Text = "";
+
                 PlayIcon.Visibility = Visibility.Visible;
                 PauseIcon.Visibility = Visibility.Collapsed;
+
                 PreviousButton.IsEnabled = false;
                 PlayPauseButton.IsEnabled = false;
                 NextButton.IsEnabled = false;
                 ProgressSlider.IsEnabled = false;
+
                 AlbumArt.Source = null;
                 AlbumPlaceholder.Visibility = Visibility.Visible;
 
@@ -916,13 +902,9 @@ namespace KageDock.Views
 
             if (!ReferenceEquals(_spotifySession, session))
             {
-                if (_spotifySession != null)
-                {
-                    _spotifySession.MediaPropertiesChanged -= Spotify_MediaPropertiesChanged;
-                    _spotifySession.PlaybackInfoChanged -= Spotify_PlaybackInfoChanged;
-                    _spotifySession.TimelinePropertiesChanged -= Spotify_TimelinePropertiesChanged;
-
-                }
+                _artworkRequestVersion++;
+                _cachedArtworkKey = null;
+                _cachedArtwork = null;
 
                 _hasPlaybackStatus = false;
                 _wasPlaying = false;
@@ -930,9 +912,6 @@ namespace KageDock.Views
                 PlaybackStateChanged?.Invoke(false);
 
                 _spotifySession = session;
-                _spotifySession.MediaPropertiesChanged += Spotify_MediaPropertiesChanged;
-                _spotifySession.PlaybackInfoChanged += Spotify_PlaybackInfoChanged;
-                _spotifySession.TimelinePropertiesChanged += Spotify_TimelinePropertiesChanged;
 
                 ReactionRequested?.Invoke(KageDialogueCategory.Curious);
             }

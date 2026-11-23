@@ -11,7 +11,6 @@ namespace KageDock.Controllers
     {
         private readonly TranslateTransform _navIndicatorTransform;
         private readonly FrameworkElement _addAppsContent;
-        private readonly FrameworkElement _appScrollViewer;
         private readonly Func<bool> _isLoaded;
         private readonly Func<bool> _isExpanded;
 
@@ -20,13 +19,11 @@ namespace KageDock.Controllers
         public DockContentAnimationController(
             TranslateTransform navIndicatorTransform,
             FrameworkElement addAppsContent,
-            FrameworkElement appScrollViewer,
             Func<bool> isLoaded,
             Func<bool> isExpanded)
         {
             _navIndicatorTransform = navIndicatorTransform;
             _addAppsContent = addAppsContent;
-            _appScrollViewer = appScrollViewer;
             _isLoaded = isLoaded;
             _isExpanded = isExpanded;
         }
@@ -113,18 +110,10 @@ namespace KageDock.Controllers
 
         public void RevealMyAppsContent()
         {
-            if (_addAppsContent.Visibility == Visibility.Visible)
-            {
-                AnimateContentEntrance(_addAppsContent);
+            if (_addAppsContent.Visibility != Visibility.Visible)
                 return;
-            }
 
-            if (_appScrollViewer.Visibility == Visibility.Visible)
-            {
-                AnimateContentEntrance(
-                    _appScrollViewer,
-                    slideDistance: 0);
-            }
+            AnimateContentEntrance(_addAppsContent);
         }
 
         private void AnimateContentEntrance(

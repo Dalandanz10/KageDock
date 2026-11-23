@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Threading.Tasks;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -10,7 +11,7 @@ using WpfColor = System.Windows.Media.Color;
 
 namespace KageDock.Views
 {
-    public partial class DockWindow
+    public partial class MyAppsView
     {
          private UIElement BuildAppTile(AppShortcut shortcut)
         {
@@ -49,6 +50,9 @@ namespace KageDock.Views
                     new TranslateTransform(0, 0),
 
                     // Drag insertion preview movement.
+                    new TranslateTransform(0, 0),
+
+                    // Section row reposition animation.
                     new TranslateTransform(0, 0)
                 }
             }
@@ -63,7 +67,47 @@ namespace KageDock.Views
             {
                 Height = GridLength.Auto
             });
+            Border? newAppGlow = null;
 
+            if (_newAppHighlightExpirations.TryGetValue(shortcut, out var expiresAt) &&
+                expiresAt > DateTime.UtcNow)
+            {
+                newAppGlow = new Border
+                {
+                    Margin = new Thickness(-5),
+                    CornerRadius = new CornerRadius(5),
+                    BorderThickness = new Thickness(1),
+                    BorderBrush = new SolidColorBrush(
+                        WpfColor.FromRgb(190, 225, 255)),
+                    Background = System.Windows.Media.Brushes.Transparent,
+                    IsHitTestVisible = false,
+                    Effect = new System.Windows.Media.Effects.DropShadowEffect
+                    {
+                        Color = WpfColor.FromRgb(145, 205, 255),
+                        BlurRadius = 12,
+                        ShadowDepth = 0,
+                        Opacity = 0.65
+                    }
+                };
+
+                Grid.SetRowSpan(newAppGlow, 2);
+                content.Children.Add(newAppGlow);
+
+                var remainingTime = expiresAt - DateTime.UtcNow;
+                var fadeDelay = remainingTime - TimeSpan.FromMilliseconds(500);
+
+                if (fadeDelay < TimeSpan.Zero)
+                    fadeDelay = TimeSpan.Zero;
+
+                newAppGlow.BeginAnimation(
+                    UIElement.OpacityProperty,
+                    new System.Windows.Media.Animation.DoubleAnimation
+                    {
+                        To = 0,
+                        BeginTime = fadeDelay,
+                        Duration = new Duration(TimeSpan.FromMilliseconds(500))
+                    });
+            }
             var icon = new System.Windows.Controls.Image
             {
                 Source = shortcut.CachedIcon,
@@ -100,6 +144,136 @@ namespace KageDock.Views
             Grid.SetRow(label, 1);
             content.Children.Add(label);
             tile.Child = content;
+
+
+            
+            if (newAppGlow != null)
+            {
+                var reflectionTransform =
+                    new System.Windows.Media.TranslateTransform(-1.2, 0);
+
+                var reflectionBrush =
+                    new System.Windows.Media.LinearGradientBrush
+                    {
+                        StartPoint = new System.Windows.Point(0, 0),
+                        EndPoint = new System.Windows.Point(1, 1),
+                        RelativeTransform = reflectionTransform,
+                        GradientStops = new System.Windows.Media.GradientStopCollection
+                        {
+                            new(WpfColor.FromArgb(0, 255, 255, 255), 0.0),
+                            new(WpfColor.FromArgb(0, 255, 255, 255), 0.40),
+                            new(WpfColor.FromArgb(170, 255, 255, 255), 0.50),
+                            new(WpfColor.FromArgb(0, 255, 255, 255), 0.60),
+                            new(WpfColor.FromArgb(0, 255, 255, 255), 1.0)
+                        }
+                    };
+
+                var reflection = new Border
+                {
+                    Margin = new Thickness(-3, -5, -3, -4),
+                    CornerRadius = new CornerRadius(5),
+                    Background = reflectionBrush,
+                    IsHitTestVisible = false,
+                    Opacity = 0.65
+                };
+
+                Grid.SetRowSpan(reflection, 2);
+                System.Windows.Controls.Panel.SetZIndex(reflection, 10);
+                content.Children.Add(reflection);
+
+                var sweepAnimation =
+                    new System.Windows.Media.Animation.DoubleAnimationUsingKeyFrames
+                    {
+                        Duration = new Duration(TimeSpan.FromSeconds(1)),
+                        RepeatBehavior =
+                            new System.Windows.Media.Animation.RepeatBehavior(3)
+                    };
+
+                sweepAnimation.KeyFrames.Add(
+                    new System.Windows.Media.Animation.LinearDoubleKeyFrame(
+                        -1.2,
+                        System.Windows.Media.Animation.KeyTime.FromTimeSpan(
+                            TimeSpan.Zero)));
+
+                sweepAnimation.KeyFrames.Add(
+                    new System.Windows.Media.Animation.LinearDoubleKeyFrame(
+                        1.2,
+                        System.Windows.Media.Animation.KeyTime.FromTimeSpan(
+                            TimeSpan.FromMilliseconds(700))));
+
+                sweepAnimation.KeyFrames.Add(
+                    new System.Windows.Media.Animation.DiscreteDoubleKeyFrame(
+                        1.2,
+                        System.Windows.Media.Animation.KeyTime.FromTimeSpan(
+                            TimeSpan.FromSeconds(1))));
+
+                reflectionTransform.BeginAnimation(
+                    System.Windows.Media.TranslateTransform.XProperty,
+                    sweepAnimation);
+            }
+
+
+
+            if (newAppGlow != null &&
+                tile.RenderTransform is TransformGroup entranceGroup)
+            {
+                var scale = entranceGroup.Children
+                    .OfType<ScaleTransform>()
+                    .FirstOrDefault();
+
+                var translate = entranceGroup.Children
+                    .OfType<TranslateTransform>()
+                    .FirstOrDefault();
+
+                var easing = new System.Windows.Media.Animation.CubicEase
+                {
+                    EasingMode =
+                        System.Windows.Media.Animation.EasingMode.EaseOut
+                };
+
+                var duration = TimeSpan.FromMilliseconds(280);
+
+                tile.BeginAnimation(
+                    UIElement.OpacityProperty,
+                    new System.Windows.Media.Animation.DoubleAnimation
+                    {
+                        From = 0,
+                        To = 1,
+                        Duration = new Duration(duration),
+                        EasingFunction = easing
+                    });
+
+                if (scale != null)
+                {
+                    var scaleAnimation =
+                        new System.Windows.Media.Animation.DoubleAnimation
+                        {
+                            From = 0.97,
+                            To = 1.0,
+                            Duration = new Duration(duration),
+                            EasingFunction = easing
+                        };
+
+                    scale.BeginAnimation(
+                        ScaleTransform.ScaleXProperty, scaleAnimation);
+
+                    scale.BeginAnimation(
+                        ScaleTransform.ScaleYProperty, scaleAnimation);
+                }
+
+                if (translate != null)
+                {
+                    translate.BeginAnimation(
+                        TranslateTransform.YProperty,
+                        new System.Windows.Media.Animation.DoubleAnimation
+                        {
+                            From = 5,
+                            To = 0,
+                            Duration = new Duration(duration),
+                            EasingFunction = easing
+                        });
+                }
+            }
 
             void AnimateTileScale(double targetScale, int durationMs)
             {
@@ -249,6 +423,8 @@ namespace KageDock.Views
                 _dragStartPoint = e.GetPosition(this);
                 _pendingDragShortcut = shortcut;
                 _dragStarted = false;
+
+                AnimateTileScale(0.94, 100);
             };
 
             tile.MouseMove += async (_, e) =>
@@ -268,6 +444,7 @@ namespace KageDock.Views
                     return;
 
                 _dragStarted = true;
+                _host.SetMyAppsDragActive(true);
                 _dragSourceTile = tile;
 
                 if (_newSectionDropZone != null)
@@ -288,7 +465,7 @@ namespace KageDock.Views
 
                 tile.Opacity = 0.0;
 
-                DragOverlay.Children.Clear();
+                _host.DragOverlay.Children.Clear();
 
                 var floating = BuildDragGhost(
                     shortcut,
@@ -301,10 +478,10 @@ namespace KageDock.Views
                     tile.ActualWidth / 2,
                     tile.ActualHeight / 2);
 
-                DragOverlay.Children.Add(floating);
-                DragOverlay.UpdateLayout();
+                _host.DragOverlay.Children.Add(floating);
+                _host.DragOverlay.UpdateLayout();
 
-                var startPosition = Mouse.GetPosition(DragOverlay);
+                var startPosition = Mouse.GetPosition(_host.DragOverlay);
 
                 System.Windows.Controls.Canvas.SetLeft(
                     floating,
@@ -348,13 +525,14 @@ namespace KageDock.Views
                     System.Windows.Media.CompositionTarget.Rendering
                         -= UpdateFloatingDragVisual;
 
-                    DragOverlay.Children.Clear();
+                    _host.DragOverlay.Children.Clear();
                     _floatingDragVisual = null;
                     _pendingDragShortcut = null;
 
                     _dragAutoScrollTimer?.Stop();
                     _lastDragAutoScrollTick = DateTime.MinValue;
                     _dragStarted = false;
+                    _host.SetMyAppsDragActive(false);
 
                     _previewGrid = null;
                     _previewDraggedShortcut = null;
@@ -368,19 +546,22 @@ namespace KageDock.Views
                         _dragSourceTile = null;
                     }
 
-                    RefreshSections();
+                    if (!_sectionsRefreshedDuringDrag)
+                        RefreshSections();
+
+                    _sectionsRefreshedDuringDrag = false;
 
                     // Recheck collapse immediately after drag cleanup.
-                    if (_expanded &&
+                     if (_host.IsDockExpanded &&
                         !_dragStarted &&
-                        !_contextMenuOpen &&
-                        (_activeChildWindow == null || !_activeChildWindow.IsVisible) &&
+                        !_host.IsContextMenuOpen &&
+                        !_host.IsChildWindowVisible &&
                         System.Windows.Input.Mouse.LeftButton ==
                             System.Windows.Input.MouseButtonState.Released &&
-                        !DockPanel.IsMouseOver &&
-                        !TopHoverTrigger.IsMouseOver)
+                        !_host.IsDockPanelMouseOver &&
+                        !_host.IsTopHoverTriggerMouseOver)
                     {
-                        ScheduleCollapse();
+                        _host.ScheduleCollapse();
                     }
 
                     if (_pendingDropRippleShortcut != null)
@@ -415,18 +596,23 @@ namespace KageDock.Views
                         () =>
                         {
 
-                            if (!_expanded || _dragStarted || _contextMenuOpen)
+                            if (!_host.IsDockExpanded ||
+                                _dragStarted ||
+                                _host.IsContextMenuOpen)
                                 return;
 
-                            if (_activeChildWindow != null && _activeChildWindow.IsVisible)
+                            if (_host.IsChildWindowVisible)
                                 return;
 
                             if (System.Windows.Input.Mouse.LeftButton !=
                                 System.Windows.Input.MouseButtonState.Released)
                                 return;
 
-                            if (!DockPanel.IsMouseOver && !TopHoverTrigger.IsMouseOver)
-                                ScheduleCollapse();
+                            if (!_host.IsDockPanelMouseOver &&
+                                !_host.IsTopHoverTriggerMouseOver)
+                            {
+                                _host.ScheduleCollapse();
+                            }
                         },
                         System.Windows.Threading.DispatcherPriority.Background);
 
@@ -440,6 +626,8 @@ namespace KageDock.Views
 
                 if (ReferenceEquals(_pendingDragShortcut, shortcut))
                 {
+                    AnimateTileScale(1.0, 140);
+
                     LaunchApp(shortcut);
                     e.Handled = true;
                 }
@@ -585,19 +773,19 @@ namespace KageDock.Views
 
                 menu.Opened += (_, _) =>
                 {
-                    _contextMenuOpen = true;
-                    CancelCollapseTimer();
+                    _host.SetContextMenuOpen(true);
+                    _host.CancelCollapseTimer();
                 };
 
                 menu.Closed += (_, _) =>
                 {
-                    _contextMenuOpen = false;
+                    _host.SetContextMenuOpen(false);
 
-                    if (!IsMouseOver &&
+                    if (!_host.IsWindowMouseOver &&
                         System.Windows.Input.Mouse.LeftButton ==
                         System.Windows.Input.MouseButtonState.Released)
                     {
-                        ScheduleCollapse();
+                        _host.ScheduleCollapse();
                     }
                 };
 
@@ -826,7 +1014,7 @@ namespace KageDock.Views
                     Arguments = shortcut.Arguments ?? string.Empty,
                     UseShellExecute = true
                 });
-                CollapseDock();
+                _host.CollapseDock();
             }
             catch (Exception ex)
             {
