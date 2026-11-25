@@ -13,6 +13,8 @@ namespace KageDock.Views
             if (_expanded)
                 return;
 
+            _contentHost.ResetMyAppsScrollPosition();
+
             CancelCollapseTimer();
 
             _kageCoordinator?.OnDockExpanding();
@@ -338,9 +340,6 @@ namespace KageDock.Views
 
 
                 DockRevealHost.BeginAnimation(FrameworkElement.WidthProperty, widthAnimation);
-
-                if (panelWidthAnimation != null)
-                    DockPanel.BeginAnimation(FrameworkElement.WidthProperty, panelWidthAnimation);
 
                 DockRevealHost.BeginAnimation(FrameworkElement.HeightProperty, heightAnimation);
 

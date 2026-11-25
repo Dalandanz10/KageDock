@@ -11,8 +11,11 @@ public class DiscoveredApp
     public string Name { get; set; } = "";
     public string TargetPath { get; set; } = "";
     public string Arguments { get; set; } = "";
+    public string WorkingDirectory { get; set; } = "";
     public string Source { get; set; } = "";
     public bool AlreadyAdded { get; set; }
+    public string SteamAppId { get; set; } = string.Empty;
+    public string InstallDirectory { get; set; } = string.Empty;
 }
 
 public static class AppDiscoveryService
@@ -133,6 +136,78 @@ public static class AppDiscoveryService
             .OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
+
+
+        public static bool TryResolveShortcut(
+            string shortcutPath,
+            out DiscoveredApp app)
+        {
+            app = null!;
+
+            if (string.IsNullOrWhiteSpace(shortcutPath) ||
+                !File.Exists(shortcutPath))
+                return false;
+
+            Type? shellType = Type.GetTypeFromProgID("WScript.Shell");
+            if (shellType == null)
+                return false;
+
+            object? shell = null;
+            object? link = null;
+
+            try
+            {
+                shell = Activator.CreateInstance(shellType);
+                if (shell == null)
+                    return false;
+
+                link = shellType.InvokeMember(
+                    "CreateShortcut",
+                    System.Reflection.BindingFlags.InvokeMethod,
+                    null,
+                    shell,
+                    new object[] { shortcutPath });
+
+                if (link == null)
+                    return false;
+
+                Type linkType = link.GetType();
+
+                string target = ReadComString(linkType, link, "TargetPath");
+                string arguments = ReadComString(linkType, link, "Arguments");
+                string workingDirectory =
+                    ReadComString(linkType, link, "WorkingDirectory");
+
+                if (string.IsNullOrWhiteSpace(target) ||
+                    !File.Exists(target) ||
+                    !string.Equals(
+                        Path.GetExtension(target),
+                        ".exe",
+                        StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                app = new DiscoveredApp
+                {
+                    Name = Path.GetFileNameWithoutExtension(shortcutPath),
+                    TargetPath = target,
+                    Arguments = arguments,
+                    WorkingDirectory = workingDirectory,
+                    Source = "Desktop Shortcut"
+                };
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+                ReleaseComObject(link);
+                ReleaseComObject(shell);
+            }
+        }
+
     private static void ScanStartMenu(List<DiscoveredApp> apps)
     {
         string[] folders =
@@ -175,6 +250,7 @@ public static class AppDiscoveryService
 
                     string target = ReadComString(linkType, link, "TargetPath");
                     string arguments = ReadComString(linkType, link, "Arguments");
+                    string workingDirectory = ReadComString(linkType, link, "WorkingDirectory");
                     string name = Path.GetFileNameWithoutExtension(shortcut);
 
                     if (string.IsNullOrWhiteSpace(target))
@@ -190,6 +266,7 @@ public static class AppDiscoveryService
                     apps.Add(new DiscoveredApp
                     {
                         Name = name,
+                        WorkingDirectory = workingDirectory,
                         TargetPath = target,
                         Arguments = arguments,
                         Source = "Start Menu"

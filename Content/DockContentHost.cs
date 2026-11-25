@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using KageDock.Contracts;
+using KageDock.Modules;
 
 namespace KageDock.Content
 {
@@ -103,6 +104,15 @@ namespace KageDock.Content
                     $"No module is registered with ID '{id}'.");
 
             return GetOrCreateModule(descriptor);
+        }
+
+        public void ResetMyAppsScrollPosition()
+        {
+            if (_modules.TryGetValue("myapps", out var module) &&
+                module is MyAppsModule myAppsModule)
+            {
+                myAppsModule.ResetScrollPosition();
+            }
         }
 
         private IDockContentModule GetOrCreateModule(

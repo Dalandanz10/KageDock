@@ -34,6 +34,7 @@ namespace KageDock.Modules
 
         public void OnActivated()
         {
+            _view.ResetScrollPosition();
             _view.RestoreView(animateTileMoves: false);
         }
 
@@ -54,6 +55,11 @@ namespace KageDock.Modules
         public void Dispose()
         {
             _view.Dispose();
+        }
+
+        public void ResetScrollPosition()
+        {
+            _view.ResetScrollPosition();
         }
     }
 }

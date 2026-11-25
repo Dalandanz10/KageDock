@@ -106,5 +106,10 @@ namespace KageDock.Views
             AppScrollViewer.Visibility = Visibility.Visible;
             NewSectionDropZoneHost.Visibility = Visibility.Visible;
         }
+
+        public void ResetScrollPosition()
+        {
+            AppScrollViewerControl.ScrollToTop();
+        }
     }
 }

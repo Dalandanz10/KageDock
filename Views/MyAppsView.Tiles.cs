@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Linq;
 using System.Windows;
+using System.IO;
 using System.Windows.Controls;
 using System.Windows.Media;
 using KageDock.Models;
@@ -27,36 +28,46 @@ namespace KageDock.Views
             var hoverBorder = WpfColor.FromArgb(100, 235, 242, 255);
             var normalBorder = WpfColor.FromArgb(35, 220, 230, 245);
 
+
+            bool isMissing = IsApplicationMissing(shortcut);
+
+            var missingBorder = new SolidColorBrush(
+                WpfColor.FromRgb(210, 75, 75));
+
             var tile = new Border
             {
                 Width = 76,
                 Height = 76,
                 Margin = new Thickness(3),
                 CornerRadius = new CornerRadius(5),
-                BorderThickness = new Thickness(1),
-                BorderBrush = tileBorder,
+                BorderThickness = new Thickness(isMissing ? 1.5 : 1),
+                BorderBrush = isMissing ? missingBorder : tileBorder,
                 Background = tileBackground,
                 Cursor = System.Windows.Input.Cursors.Hand,
                 AllowDrop = true,
                 Tag = shortcut,
                 RenderTransformOrigin = new System.Windows.Point(0.5, 0.5),
                 RenderTransform = new TransformGroup
-            {
-                Children =
                 {
-                    new ScaleTransform(1.0, 1.0),
-
-                    // Hover lift and drop ripple.
-                    new TranslateTransform(0, 0),
-
-                    // Drag insertion preview movement.
-                    new TranslateTransform(0, 0),
-
-                    // Section row reposition animation.
-                    new TranslateTransform(0, 0)
-                }
-            }
+                    Children =
+                    {
+                        new ScaleTransform(1.0, 1.0),
+                        new TranslateTransform(0, 0),
+                        new TranslateTransform(0, 0),
+                        new TranslateTransform(0, 0)
+                    }
+                },
+                Effect = isMissing
+                    ? new System.Windows.Media.Effects.DropShadowEffect
+                    {
+                        Color = WpfColor.FromRgb(220, 65, 65),
+                        BlurRadius = 10,
+                        ShadowDepth = 0,
+                        Opacity = 0.45
+                    }
+                    : null
             };
+
 
             var content = new Grid { Margin = new Thickness(3, 5, 3, 4) };
             content.RowDefinitions.Add(new RowDefinition
@@ -146,7 +157,7 @@ namespace KageDock.Views
             tile.Child = content;
 
 
-            
+
             if (newAppGlow != null)
             {
                 var reflectionTransform =
@@ -721,6 +732,29 @@ namespace KageDock.Views
 
                 AddMenuItem("Rename app", () => RenameApp(shortcut));
 
+                if (!string.IsNullOrWhiteSpace(shortcut.SteamAppId))
+                {
+                    AddMenuItem("Open game folder", () =>
+                        OpenFileLocation(shortcut));
+                }
+                else
+                {
+                    AddMenuItem("Open file location", () =>
+                        OpenFileLocation(shortcut));
+
+                    AddMenuItem("Change application file", () =>
+                        ChangeApplicationFile(shortcut));
+
+                    AddMenuItem("Change working directory", () =>
+                        ChangeWorkingDirectory(shortcut));
+
+                    if (!string.IsNullOrWhiteSpace(shortcut.CustomWorkingDirectory))
+                    {
+                        AddMenuItem("Use automatic directory", () =>
+                            UseAutomaticWorkingDirectory(shortcut));
+                    }
+                }
+
                 panel.Children.Add(new Border
                 {
                     Height = 1,
@@ -814,22 +848,25 @@ namespace KageDock.Views
                 // Always cache the extracted icon, even if the window is unloaded.
                 shortcut.CachedIcon = icon;
 
-                if (!IsLoaded)
-                    return;
+                // Defer the tile lookup until the current UI rebuild has completed.
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    if (!IsLoaded)
+                        return;
 
-                // Find the current tile instead of updating a potentially
-                // detached Image from an older dock refresh.
-                var currentTile = FindTileByShortcut(SectionsPanel, shortcut);
+                    var currentTile = FindTileByShortcut(SectionsPanel, shortcut);
 
-                if (currentTile?.Child is not Grid content)
-                    return;
+                    if (currentTile?.Child is not Grid content)
+                        return;
 
-                var currentIcon = content.Children
-                    .OfType<System.Windows.Controls.Image>()
-                    .FirstOrDefault();
+                    var currentIcon = content.Children
+                        .OfType<System.Windows.Controls.Image>()
+                        .FirstOrDefault();
 
-                if (currentIcon != null)
-                    currentIcon.Source = icon;
+                    if (currentIcon != null)
+                        currentIcon.Source = icon;
+
+                }, System.Windows.Threading.DispatcherPriority.Background);
             }
             catch (Exception ex)
             {
@@ -974,6 +1011,117 @@ namespace KageDock.Views
             };
         }
 
+
+        private void OpenFileLocation(AppShortcut shortcut)
+        {
+            // Steam games open their installation directory.
+            if (!string.IsNullOrWhiteSpace(shortcut.SteamAppId))
+            {
+                if (string.IsNullOrWhiteSpace(shortcut.InstallDirectory) ||
+                    !Directory.Exists(shortcut.InstallDirectory))
+                {
+                    System.Windows.MessageBox.Show(
+                        "The game installation folder could not be found.",
+                        "KageDock",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+
+                    return;
+                }
+
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = $"\"{shortcut.InstallDirectory}\"",
+                    UseShellExecute = true
+                });
+
+                return;
+            }
+
+            // Normal applications select their executable in Explorer.
+            if (string.IsNullOrWhiteSpace(shortcut.TargetPath) ||
+                !File.Exists(shortcut.TargetPath))
+            {
+                System.Windows.MessageBox.Show(
+                    "The application file could not be found.",
+                    "KageDock",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+
+                return;
+            }
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = $"/select,\"{shortcut.TargetPath}\"",
+                UseShellExecute = true
+            });
+        }
+
+        private void ChangeApplicationFile(AppShortcut shortcut)
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Select application file",
+                Filter = "Application files (*.exe)|*.exe",
+                CheckFileExists = true,
+                Multiselect = false
+            };
+
+            if (File.Exists(shortcut.TargetPath))
+            {
+                dialog.InitialDirectory =
+                    Path.GetDirectoryName(shortcut.TargetPath);
+            }
+
+            if (dialog.ShowDialog() != true)
+                return;
+
+            shortcut.TargetPath = dialog.FileName;
+
+            // Update automatic directory for the new executable.
+            shortcut.WorkingDirectory =
+                Path.GetDirectoryName(dialog.FileName) ?? string.Empty;
+
+            // Keep CustomWorkingDirectory unchanged.
+            shortcut.CachedIcon = null;
+
+            SaveAndRefresh();
+        }
+
+        private void ChangeWorkingDirectory(AppShortcut shortcut)
+        {
+            var dialog = new Microsoft.Win32.OpenFolderDialog
+            {
+                Title = "Choose application working directory",
+                Multiselect = false
+            };
+
+            string currentDirectory =
+                !string.IsNullOrWhiteSpace(shortcut.CustomWorkingDirectory)
+                    ? shortcut.CustomWorkingDirectory
+                    : shortcut.WorkingDirectory;
+
+            if (Directory.Exists(currentDirectory))
+                dialog.InitialDirectory = currentDirectory;
+
+            if (dialog.ShowDialog() != true)
+                return;
+
+            shortcut.CustomWorkingDirectory = dialog.FolderName;
+
+            SaveAndRefresh();
+        }
+
+        private void UseAutomaticWorkingDirectory(AppShortcut shortcut)
+        {
+            shortcut.CustomWorkingDirectory = string.Empty;
+
+            SaveAndRefresh();
+        }
+
         private static FrameworkElementFactory CreateRenameTextBoxTemplate()
         {
             var border = new FrameworkElementFactory(typeof(Border));
@@ -1003,23 +1151,200 @@ namespace KageDock.Views
             return border;
         }
 
+
+        private static bool IsApplicationMissing(AppShortcut shortcut)
+        {
+            if (!string.IsNullOrWhiteSpace(shortcut.SteamAppId))
+            {
+                return string.IsNullOrWhiteSpace(shortcut.InstallDirectory) ||
+                    !Directory.Exists(shortcut.InstallDirectory);
+            }
+
+            if (string.IsNullOrWhiteSpace(shortcut.TargetPath))
+                return true;
+
+            // Packaged apps use shell activation rather than a normal file path.
+            if (shortcut.TargetPath.StartsWith(
+                @"shell:AppsFolder\",
+                StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            return !File.Exists(shortcut.TargetPath);
+        }
+
+
+
+        private void ShowApplicationNotFound(AppShortcut shortcut)
+        {
+            var dialog = new System.Windows.Window
+            {
+                Title = "Application not found",
+                Width = 360,
+                Height = 230,
+                WindowStartupLocation =
+                    System.Windows.WindowStartupLocation.CenterScreen,
+                ResizeMode = System.Windows.ResizeMode.NoResize,
+                WindowStyle = System.Windows.WindowStyle.None,
+                AllowsTransparency = true,
+                Background = System.Windows.Media.Brushes.Transparent,
+                ShowInTaskbar = false,
+                Topmost = true
+            };
+
+            var root = new System.Windows.Controls.Border
+            {
+                Background = new SolidColorBrush(
+                    WpfColor.FromRgb(25, 28, 35)),
+                BorderBrush = new SolidColorBrush(
+                    WpfColor.FromRgb(75, 65, 70)),
+                BorderThickness = new System.Windows.Thickness(1),
+                CornerRadius = new System.Windows.CornerRadius(12),
+                Padding = new System.Windows.Thickness(22),
+                Effect = new System.Windows.Media.Effects.DropShadowEffect
+                {
+                    BlurRadius = 24,
+                    ShadowDepth = 0,
+                    Opacity = 0.45
+                }
+            };
+
+            var layout = new System.Windows.Controls.StackPanel();
+
+            var heading = new System.Windows.Controls.TextBlock
+            {
+                Text = "Application not found",
+                FontSize = 17,
+                FontWeight = System.Windows.FontWeights.SemiBold,
+                Foreground = System.Windows.Media.Brushes.White,
+                Margin = new System.Windows.Thickness(0, 0, 0, 10)
+            };
+
+            var description = new System.Windows.Controls.TextBlock
+            {
+                Text = "KageDock couldn't find this application. Its location may have changed.\n\nPlease update the application's file location to continue.",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(
+                    WpfColor.FromRgb(185, 190, 200)),
+                TextWrapping = System.Windows.TextWrapping.Wrap,
+                LineHeight = 19,
+                Margin = new System.Windows.Thickness(0, 0, 0, 22)
+            };
+
+            var buttons = new System.Windows.Controls.StackPanel
+            {
+                Orientation = System.Windows.Controls.Orientation.Horizontal,
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Right
+            };
+
+            var cancelButton = new System.Windows.Controls.Button
+            {
+                Content = "Cancel",
+                Width = 85,
+                Height = 34,
+                Margin = new System.Windows.Thickness(0, 0, 8, 0),
+                Background = new SolidColorBrush(
+                    WpfColor.FromRgb(43, 47, 56)),
+                Foreground = System.Windows.Media.Brushes.White,
+                BorderThickness = new System.Windows.Thickness(0),
+                Cursor = System.Windows.Input.Cursors.Hand
+            };
+
+            var findButton = new System.Windows.Controls.Button
+            {
+                Content = "Find the app",
+                Width = 105,
+                Height = 34,
+                Background = new SolidColorBrush(
+                    WpfColor.FromRgb(65, 105, 165)),
+                Foreground = System.Windows.Media.Brushes.White,
+                BorderThickness = new System.Windows.Thickness(0),
+                Cursor = System.Windows.Input.Cursors.Hand
+            };
+
+            cancelButton.Click += (_, _) => dialog.Close();
+
+            findButton.Click += (_, _) =>
+            {
+                dialog.Close();
+                ChangeApplicationFile(shortcut);
+            };
+
+            buttons.Children.Add(cancelButton);
+            buttons.Children.Add(findButton);
+
+            layout.Children.Add(heading);
+            layout.Children.Add(description);
+            layout.Children.Add(buttons);
+
+            root.Child = layout;
+            dialog.Content = root;
+
+            dialog.ShowDialog();
+        }
+
+
+
         private void LaunchApp(AppShortcut shortcut)
         {
-            if (string.IsNullOrWhiteSpace(shortcut.TargetPath)) return;
+            if (IsApplicationMissing(shortcut))
+            {
+                ShowApplicationNotFound(shortcut);
+                return;
+            }
+
             try
             {
-                Process.Start(new ProcessStartInfo
+                // Steam games launch through their Steam App ID.
+                if (!string.IsNullOrWhiteSpace(shortcut.SteamAppId))
+                {
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = $"steam://rungameid/{shortcut.SteamAppId}",
+                        UseShellExecute = true
+                    });
+
+                    _host.CollapseDock();
+                    return;
+                }
+
+                // Existing desktop and packaged app launching.
+                var startInfo = new ProcessStartInfo
                 {
                     FileName = shortcut.TargetPath,
                     Arguments = shortcut.Arguments ?? string.Empty,
                     UseShellExecute = true
-                });
+                };
+
+                string workingDirectory =
+                    !string.IsNullOrWhiteSpace(shortcut.CustomWorkingDirectory)
+                        ? shortcut.CustomWorkingDirectory
+                        : shortcut.WorkingDirectory;
+
+                if (string.IsNullOrWhiteSpace(workingDirectory) ||
+                    !Directory.Exists(workingDirectory))
+                {
+                    workingDirectory = Path.GetDirectoryName(shortcut.TargetPath)
+                        ?? string.Empty;
+                }
+
+                if (!string.IsNullOrWhiteSpace(workingDirectory))
+                {
+                    startInfo.WorkingDirectory = workingDirectory;
+                }
+
+                Process.Start(startInfo);
+
                 _host.CollapseDock();
             }
             catch (Exception ex)
             {
-                System.Windows.MessageBox.Show($"Could not launch this app.\n\n{ex.Message}", "KageDock",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                System.Windows.MessageBox.Show(
+                    $"Could not launch this app.\n\n{ex.Message}",
+                    "KageDock",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
             }
         }
     }

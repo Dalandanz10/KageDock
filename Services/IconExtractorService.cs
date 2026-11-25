@@ -15,6 +15,7 @@ namespace KageDock.Services
     public static class IconExtractorService
     {
         private const string AppsFolderPrefix = @"shell:AppsFolder\";
+        private const string SteamLaunchPrefix = "steam://rungameid/";
 
         private const uint SHGFI_ICON = 0x00000100;
         private const uint SHGFI_LARGEICON = 0x00000000;
@@ -105,7 +106,7 @@ namespace KageDock.Services
                     return null;
 
                 string familyName = identity.Substring(0, separator);
-                
+
                 string? installPath = GetPackageInstallPath(familyName);
 
                 if (string.IsNullOrWhiteSpace(installPath))
@@ -208,6 +209,15 @@ namespace KageDock.Services
             if (string.IsNullOrWhiteSpace(filePath))
                 return null;
 
+            // Steam games use cached Steam artwork.
+            if (filePath.StartsWith(
+                    SteamLaunchPrefix,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return GetSteamGameIcon(
+                    filePath.Substring(SteamLaunchPrefix.Length));
+            }
+
             // Microsoft Store / packaged apps.
             if (filePath.StartsWith(
                     AppsFolderPrefix,
@@ -298,11 +308,90 @@ namespace KageDock.Services
                 DestroyIcon(info.hIcon);
             }
         }
+        private static BitmapSource? GetSteamGameIcon(string appId)
+        {
+            if (string.IsNullOrWhiteSpace(appId) ||
+                !appId.All(char.IsDigit))
+                return null;
+
+            foreach (string cacheDirectory in
+                SteamDiscoveryService.GetSteamLibraryCacheDirectories())
+            {
+                string gameCacheDirectory = Path.Combine(
+                    cacheDirectory,
+                    appId);
+
+                if (!Directory.Exists(gameCacheDirectory))
+                    continue;
+
+                // Prefer Steam's hashed JPG application icon.
+                string? hashedIcon = Directory
+                    .GetFiles(
+                        gameCacheDirectory,
+                        "*.jpg",
+                        SearchOption.TopDirectoryOnly)
+                    .FirstOrDefault(file =>
+                    {
+                        string name = Path.GetFileName(file);
+
+                        return !name.Equals("header.jpg", StringComparison.OrdinalIgnoreCase) &&
+                            !name.Equals("library_600x900.jpg", StringComparison.OrdinalIgnoreCase) &&
+                            !name.Equals("library_hero.jpg", StringComparison.OrdinalIgnoreCase) &&
+                            !name.Equals("library_hero_blur.jpg", StringComparison.OrdinalIgnoreCase);
+                    });
+
+                string[] artworkFiles =
+                {
+                    hashedIcon ?? string.Empty,
+                    "header.jpg",
+                    "library_600x900.jpg",
+                    "logo.png",
+                    "library_hero.jpg"
+                };
+
+                foreach (string fileName in artworkFiles)
+                {
+                    if (string.IsNullOrWhiteSpace(fileName))
+                        continue;
+
+                    string artworkPath = Path.IsPathRooted(fileName)
+                        ? fileName
+                        : Path.Combine(gameCacheDirectory, fileName);
+
+                    if (!File.Exists(artworkPath))
+                        continue;
+
+                    try
+                    {
+                        var bitmap = new BitmapImage();
+
+                        bitmap.BeginInit();
+                        bitmap.UriSource = new Uri(artworkPath);
+                        bitmap.DecodePixelWidth = 128;
+                        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                        bitmap.EndInit();
+
+                        if (bitmap.CanFreeze)
+                            bitmap.Freeze();
+
+                        return bitmap;
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine(
+                            $"[KageDock] Steam artwork failed: {ex.Message}");
+                    }
+                }
+            }
+
+            return null;
+        }
+
         private static readonly Dictionary<string, string?> PackagePathCache =
                     new(StringComparer.OrdinalIgnoreCase);
 
         private static readonly object PackagePathLock = new();
-        
+
         private static string? GetPackageInstallPath(string familyName)
         {
             lock (PackagePathLock)

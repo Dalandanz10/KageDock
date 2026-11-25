@@ -1102,6 +1102,5 @@ namespace KageDock.Views
             _shortcutCoordinator!.Save();
             RefreshSections();
         }
-
     }
 }

@@ -167,7 +167,6 @@ namespace KageDock.Views
             }
         }
 
-
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
             ReloadConfiguration();

@@ -113,19 +113,20 @@ namespace KageDock.Coordinators
                             if (alreadyExists)
                                 continue;
 
-                            string name =
-                                Path.GetFileNameWithoutExtension(path);
+                            if (!AppDiscoveryService.TryResolveShortcut(
+                                    path, out var app))
+                                continue;
 
-                            _discoveredApps.Add(new AppShortcut
-                            {
-                                Name = name,
-                                DisplayName = name,
-                                TargetPath = path,
-                                Category = "Pinned",
-                                OrderIndex =
-                                    _shortcutStore.Shortcuts.Count +
-                                    _discoveredApps.Count
-                            });
+                            bool alreadyDiscovered = _discoveredApps.Any(existing =>
+                                string.Equals(
+                                    existing.TargetPath,
+                                    app.TargetPath,
+                                    StringComparison.OrdinalIgnoreCase));
+
+                            if (alreadyDiscovered)
+                                continue;
+
+                            AddDiscoveredApp(app);
                         }
                     }
                     catch
@@ -134,9 +135,12 @@ namespace KageDock.Coordinators
                     }
                 }
 
-                // Start Store discovery while desktop icons load.
+                // Start Store and Steam discovery while desktop icons load.
                 var storeAppsTask = Task.Run(
                     () => AppDiscoveryService.DiscoverStoreApps());
+
+                var steamGamesTask = Task.Run(
+                    () => SteamDiscoveryService.DiscoverInstalledGames());
 
                 await LoadIconsAsync(_discoveredApps.ToList());
 
@@ -167,7 +171,37 @@ namespace KageDock.Coordinators
                     .ToList();
 
                 await LoadIconsAsync(storeShortcuts);
+                // Merge installed Steam games.
+                var steamGames = await steamGamesTask;
 
+                foreach (var game in steamGames)
+                {
+                    bool alreadyExists =
+                        _shortcutStore.Shortcuts.Any(existing =>
+                            string.Equals(
+                                existing.SteamAppId,
+                                game.AppId,
+                                StringComparison.OrdinalIgnoreCase)) ||
+
+                        _discoveredApps.Any(existing =>
+                            string.Equals(
+                                existing.SteamAppId,
+                                game.AppId,
+                                StringComparison.OrdinalIgnoreCase));
+
+                    if (alreadyExists)
+                        continue;
+
+                    AddSteamGame(game);
+                }
+                // Load icons for discovered Steam games.
+                var steamShortcuts = _discoveredApps
+                    .Where(a =>
+                        !string.IsNullOrWhiteSpace(a.SteamAppId) &&
+                        a.CachedIcon == null)
+                    .ToList();
+
+                await LoadIconsAsync(steamShortcuts);
                 IsDiscoveryComplete = true;
             }
             catch
@@ -192,6 +226,27 @@ namespace KageDock.Coordinators
                 DisplayName = app.Name,
                 TargetPath = app.TargetPath,
                 Arguments = app.Arguments,
+                WorkingDirectory = app.WorkingDirectory,
+                Category = "Pinned",
+                OrderIndex =
+                    _shortcutStore.Shortcuts.Count +
+                    _discoveredApps.Count
+            });
+        }
+
+        private void AddSteamGame(SteamGame game)
+        {
+            _discoveredApps.Add(new AppShortcut
+            {
+                Name = game.Name,
+                DisplayName = game.Name,
+
+                // Unique identity used by the Add Apps selection system.
+                TargetPath = $"steam://rungameid/{game.AppId}",
+
+                SteamAppId = game.AppId,
+                InstallDirectory = game.InstallDirectory,
+
                 Category = "Pinned",
                 OrderIndex =
                     _shortcutStore.Shortcuts.Count +

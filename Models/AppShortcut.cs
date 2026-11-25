@@ -9,6 +9,11 @@ namespace KageDock.Models
         public string DisplayName { get; set; } = string.Empty;
         public string TargetPath { get; set; } = string.Empty;
         public string Arguments { get; set; } = string.Empty;
+        public string WorkingDirectory { get; set; } = string.Empty;
+        public string CustomWorkingDirectory { get; set; } = string.Empty;
+        // Steam game information. Empty for non-Steam applications.
+        public string SteamAppId { get; set; } = string.Empty;
+        public string InstallDirectory { get; set; } = string.Empty;
         public int OrderIndex { get; set; }
         public int SlotIndex { get; set; } = -1;
 
